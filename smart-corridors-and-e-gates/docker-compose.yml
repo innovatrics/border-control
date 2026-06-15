@@ -1,0 +1,218 @@
+version: "3"
+
+# Smart Corridors and e-Gates — all-in-one runnable sample
+# Based on SmartFace (https://github.com/innovatrics/smartface)
+
+x-sf-common: &sf-common
+  env_file:
+    - .env
+  volumes:
+    - ./iengine.lic:/etc/innovatrics/iengine.lic:ro
+  networks:
+    - sf-network
+  restart: unless-stopped
+
+services:
+
+  # ── Core infrastructure ────────────────────────────────────────────────────
+
+  SFBase:
+    <<: *sf-common
+    image: ${REGISTRY}sf-base:${SF_VERSION}
+    command: run-migrations
+
+  SFGroup:
+    <<: *sf-common
+    image: ${REGISTRY}sf-group:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFStreamDataDbWorker:
+    <<: *sf-common
+    image: ${REGISTRY}sf-stream-data-db-worker:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  # ── API layer ──────────────────────────────────────────────────────────────
+
+  SFApi:
+    <<: *sf-common
+    image: ${REGISTRY}sf-api:${SF_VERSION}
+    ports:
+      - 8098:80
+    depends_on:
+      - SFBase
+
+  SFGraphQLApi:
+    <<: *sf-common
+    image: ${REGISTRY}sf-graphql-api:${SF_VERSION}
+    ports:
+      - 8097:80
+    depends_on:
+      - SFBase
+
+  SFODataApi:
+    <<: *sf-common
+    image: ${REGISTRY}sf-odata-api:${SF_VERSION}
+    ports:
+      - 8099:80
+    depends_on:
+      - SFBase
+
+  # ── Camera services ────────────────────────────────────────────────────────
+
+  SFCam1:
+    <<: *sf-common
+    image: ${REGISTRY}sf-cam:${SF_VERSION}
+    environment:
+      CameraIndex: 1
+      CAMERA_PREVIEW_PORT: 30001
+    ports:
+      - 30001:30001
+    depends_on:
+      - SFBase
+
+  SFCam2:
+    <<: *sf-common
+    image: ${REGISTRY}sf-cam:${SF_VERSION}
+    environment:
+      CameraIndex: 2
+      CAMERA_PREVIEW_PORT: 30002
+    ports:
+      - 30002:30002
+    depends_on:
+      - SFBase
+
+  SFCam3:
+    <<: *sf-common
+    image: ${REGISTRY}sf-cam:${SF_VERSION}
+    environment:
+      CameraIndex: 3
+      CAMERA_PREVIEW_PORT: 30003
+    ports:
+      - 30003:30003
+    depends_on:
+      - SFBase
+
+  SFCam4:
+    <<: *sf-common
+    image: ${REGISTRY}sf-cam:${SF_VERSION}
+    environment:
+      CameraIndex: 4
+      CAMERA_PREVIEW_PORT: 30004
+    ports:
+      - 30004:30004
+    depends_on:
+      - SFBase
+
+  SFCam5:
+    <<: *sf-common
+    image: ${REGISTRY}sf-cam:${SF_VERSION}
+    environment:
+      CameraIndex: 5
+      CAMERA_PREVIEW_PORT: 30005
+    ports:
+      - 30005:30005
+    depends_on:
+      - SFBase
+
+  # ── Video pipeline ─────────────────────────────────────────────────────────
+
+  SFVideoAggregator:
+    <<: *sf-common
+    image: ${REGISTRY}sf-video-aggregator:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFVideoCollector:
+    <<: *sf-common
+    image: ${REGISTRY}sf-video-collector:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFEdgeStreamProcessor:
+    <<: *sf-common
+    image: ${REGISTRY}sf-edge-stream-processor:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFStateSynchronizer:
+    <<: *sf-common
+    image: ${REGISTRY}sf-state-synchronizer:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  # ── Detection & recognition ────────────────────────────────────────────────
+
+  SFFaceDetector:
+    <<: *sf-common
+    image: ${REGISTRY}sf-face-detector:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFFaceExtractor:
+    <<: *sf-common
+    image: ${REGISTRY}sf-face-extractor:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFPedestrianDetector:
+    <<: *sf-common
+    image: ${REGISTRY}sf-pedestrian-detector:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFObjectDetector:
+    <<: *sf-common
+    image: ${REGISTRY}sf-object-detector:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFLivenessDetector:
+    <<: *sf-common
+    image: ${REGISTRY}sf-liveness:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  # ── Matching ───────────────────────────────────────────────────────────────
+
+  SFWatchlistMatcher:
+    <<: *sf-common
+    image: ${REGISTRY}sf-watchlist-matcher:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  SFFaceMatcher:
+    <<: *sf-common
+    image: ${REGISTRY}sf-face-matcher:${SF_VERSION}
+    depends_on:
+      - SFBase
+
+  # ── Access control ─────────────────────────────────────────────────────────
+
+  SFAccessController:
+    <<: *sf-common
+    image: ${REGISTRY}sf-access-controller:${AC_VERSION}
+    env_file:
+      - .env
+      - .env.sfac
+    depends_on:
+      - SFBase
+
+  # ── SmartFace Station (operator UI) ───────────────────────────────────────
+
+  SFStation:
+    <<: *sf-common
+    image: ${REGISTRY}sf-station:${SFS_VERSION}
+    env_file:
+      - .env
+      - .env.sfstation
+    ports:
+      - 8000:8000
+    depends_on:
+      - SFApi
+      - SFGraphQLApi
+
+networks:
+  sf-network:
+    external: true

@@ -1,0 +1,96 @@
+version: "3"
+
+services:
+  pgsql:
+    extends:
+      file: docker-compose-common.yml
+      service: common
+    image: postgres:14.3
+    environment:
+      POSTGRES_PASSWORD: Test1234
+    volumes:
+      - pgsql_data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      - sf-network
+    restart: unless-stopped
+
+  pgadmin:
+    extends:
+      file: docker-compose-common.yml
+      service: common
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - 7070:80
+    networks:
+      - sf-network
+    restart: unless-stopped
+
+  rmq:
+    extends:
+      file: docker-compose-common.yml
+      service: common
+    image: rabbitmq:3.12.11-management
+    volumes:
+      - rmq_data:/var/lib/rabbitmq
+      - ./etc_rmq/enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./etc_rmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    ports:
+      - 5672:5672
+      - 15672:15672
+      - 1883:1883
+      - 5552:5552
+    networks:
+      - sf-network
+    restart: unless-stopped
+
+  minio:
+    extends:
+      file: docker-compose-common.yml
+      service: common
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - 9000:9000
+      - 9001:9001
+    networks:
+      - sf-network
+    restart: unless-stopped
+
+  # mssql:
+  #   extends:
+  #     file: docker-compose-common.yml
+  #     service: common
+  #   image: mcr.microsoft.com/mssql/server:2019-latest
+  #   environment:
+  #     SA_PASSWORD: Test1234
+  #     ACCEPT_EULA: Y
+  #   volumes:
+  #     - mssql_data:/var/opt/mssql
+  #   ports:
+  #     - 1433:1433
+  #   networks:
+  #     - sf-network
+  #   restart: unless-stopped
+
+volumes:
+  pgsql_data:
+  pgadmin_data:
+  rmq_data:
+  minio_data:
+  # mssql_data:
+
+networks:
+  sf-network:
+    external: true
