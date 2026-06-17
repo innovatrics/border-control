@@ -87,7 +87,7 @@ docker compose -f sf_dependencies/docker-compose.yml down -v
 ## Structure
 
 ```
-smart-corridors-and-e-gates/
+vpp/
 ├── docker-compose.yml          # SmartFace application services
 ├── .env                        # Main environment config
 ├── .env.sfac                   # Access Controller overrides

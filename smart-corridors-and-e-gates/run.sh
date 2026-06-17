@@ -1,114 +1,139 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# =============================================================================
+# smart-corridors-and-e-gates/run.sh — bring up the solution layer
+#
+# Assumes VPP is already running (./vpp/run.sh or root ./run.sh).
+# Starts: CIGS (identity grouping) → Hub → Frontend dashboard.
+#
+#   ./smart-corridors-and-e-gates/run.sh
+#   ./smart-corridors-and-e-gates/run.sh --no-cigs
+#   ./smart-corridors-and-e-gates/run.sh --no-frontend
+#   ./smart-corridors-and-e-gates/run.sh --skip-verify
+#
+# Prerequisites: secrets/cigs.env (IFACE_SPEED_MATCH_PHRASE) at the repo root.
+# =============================================================================
+set -uo pipefail
 
-REQUIRED_DOCKER_VERSION="20.10.10"
-ENV_FILE=".env"
+SC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(dirname "$SC_DIR")"
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
-log()  { echo "[border-control] $*"; }
-fail() { echo "[border-control] ERROR: $*" >&2; exit 1; }
-
-getvalue() {
-  local key="$1"
-  grep -E "^${key}=" "${ENV_FILE}" | cut -d'=' -f2- | tr -d '\r'
-}
-
-version_gte() {
-  # returns 0 if $1 >= $2
-  printf '%s\n%s' "$2" "$1" | sort -V -C
-}
-
-# ── Pre-flight checks ──────────────────────────────────────────────────────────
-
-if ! command -v docker &>/dev/null; then
-  fail "Docker is not installed. See https://docs.docker.com/get-docker/"
-fi
-
-DOCKER_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
-if ! version_gte "${DOCKER_VERSION}" "${REQUIRED_DOCKER_VERSION}"; then
-  fail "Docker ${REQUIRED_DOCKER_VERSION}+ required (found ${DOCKER_VERSION})"
-fi
-
-if [[ ! -f iengine.lic ]]; then
-  fail "License file 'iengine.lic' not found in $(pwd). Obtain it from the Innovatrics Customer Portal."
-fi
-
-# ── Read config ────────────────────────────────────────────────────────────────
-
-REGISTRY=$(getvalue REGISTRY)
-SF_VERSION=$(getvalue SF_VERSION)
-DB_ENGINE=$(getvalue Database__DbEngine)
-
-log "Registry : ${REGISTRY}"
-log "SF version: ${SF_VERSION}"
-log "DB engine : ${DB_ENGINE}"
-
-# ── Network ────────────────────────────────────────────────────────────────────
-
-if ! docker network inspect sf-network &>/dev/null; then
-  log "Creating docker network 'sf-network'..."
-  docker network create sf-network
-fi
-
-# ── Dependencies (pgsql / rmq / minio) ────────────────────────────────────────
-
-log "Starting infrastructure services..."
-docker compose -f sf_dependencies/docker-compose.yml up -d
-
-log "Waiting for PostgreSQL to be ready..."
-until docker compose -f sf_dependencies/docker-compose.yml exec -T pgsql \
-  pg_isready -U postgres &>/dev/null; do
-  sleep 2
+NO_CIGS=0; NO_FRONTEND=0; SKIP_VERIFY=0
+for a in "$@"; do
+  case "$a" in
+    --no-cigs)     NO_CIGS=1 ;;
+    --no-frontend) NO_FRONTEND=1 ;;
+    --skip-verify) SKIP_VERIFY=1 ;;
+    -h|--help) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "unknown flag: $a (try --help)"; exit 2 ;;
+  esac
 done
 
-# ── Database bootstrap ─────────────────────────────────────────────────────────
+# ── logging ───────────────────────────────────────────────────────────────────
+if [ -t 1 ]; then R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; B=$'\033[34m'; D=$'\033[2m'; Z=$'\033[0m'
+else R=""; G=""; Y=""; B=""; D=""; Z=""; fi
+log()  { echo "${D}[$(date +%H:%M:%S)]${Z} $*"; }
+step() { echo; echo "${B}──▶ $*${Z}"; }
+ok()   { echo "${G}  ✓${Z} $*"; }
+warn() { echo "${Y}  !${Z} $*"; }
+die()  { echo "${R}✗ $*${Z}" >&2; exit 1; }
 
-log "Creating SmartFace database (if not exists)..."
-docker compose -f sf_dependencies/docker-compose.yml exec -T pgsql \
-  psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='smartface'" \
-  | grep -q 1 || \
-  docker compose -f sf_dependencies/docker-compose.yml exec -T pgsql \
-  psql -U postgres -c "CREATE DATABASE smartface"
+# ── docker compose detection ──────────────────────────────────────────────────
+if docker compose version >/dev/null 2>&1; then DC="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then DC="docker-compose"
+else die "neither 'docker compose' nor 'docker-compose' found"; fi
+dc_sceg() { $DC -p cfs-corridor -f "$SC_DIR/docker-compose.yml" --env-file "$SC_DIR/.env" "$@"; }
 
-# ── RabbitMQ bootstrap ─────────────────────────────────────────────────────────
+# ── helpers ───────────────────────────────────────────────────────────────────
+get_env() { grep -E "^$1=" "$SC_DIR/.env" | head -1 | cut -d= -f2- | tr -d '\r'; }
+wait_http() {
+  local url="$1" t="$2" needle="${3:-}" end body
+  end=$(( $(date +%s) + t ))
+  while [ "$(date +%s)" -lt "$end" ]; do
+    if body="$(curl -fsS -m 5 "$url" 2>/dev/null)"; then
+      [ -z "$needle" ] && return 0
+      case "$body" in *"$needle"*) return 0;; esac
+    fi
+    sleep 3
+  done; return 1
+}
+detect_host_ip() {
+  local ifc cand ip
+  ifc="$(route -n get default 2>/dev/null | awk '/interface:/{print $NF; exit}')"
+  for cand in "$ifc" en0 en1 en2 eth0; do
+    [ -n "$cand" ] || continue
+    ip="$(ipconfig getifaddr "$cand" 2>/dev/null || ip -4 addr show "$cand" 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1)"
+    case "$ip" in [0-9]*.[0-9]*.[0-9]*.[0-9]*) echo "$ip"; return 0;; esac
+  done; return 1
+}
 
-log "Waiting for RabbitMQ to be ready..."
-until docker compose -f sf_dependencies/docker-compose.yml exec -T rmq \
-  rabbitmqctl status &>/dev/null; do
-  sleep 2
-done
+# ══════════════════════════════════════════════════════════════════════════════
+step "Preflight"
+command -v docker >/dev/null 2>&1 || die "docker not found"
+docker info >/dev/null 2>&1       || die "docker daemon not running"
+curl -fsS -m 5 "http://localhost:8098/api/v1/Watchlists" >/dev/null 2>&1 \
+  || die "VPP REST not reachable (:8098) — run ./vpp/run.sh first"
+ok "VPP is up"
 
-log "Configuring RabbitMQ user permissions..."
-docker compose -f sf_dependencies/docker-compose.yml exec -T rmq \
-  rabbitmqctl set_permissions -p / guest ".*" ".*" ".*" || true
+[ -f "$ROOT/secrets/cigs.env" ] && { set -a; . "$ROOT/secrets/cigs.env"; set +a; }
+[ -n "${IFACE_SPEED_MATCH_PHRASE:-}" ] \
+  || die "IFACE_SPEED_MATCH_PHRASE unset — set it in secrets/cigs.env (see secrets/README.md)"
 
-# ── MinIO bucket ───────────────────────────────────────────────────────────────
+HARBOR="$(get_env HARBOR)"
+CIGS_VERSION="$(get_env CIGS_VERSION)"
+HUB_VERSION="$(get_env HUB_VERSION)"
+FRONTEND_VERSION="$(get_env FRONTEND_VERSION)"
+FRONTEND_PORT="$(get_env FRONTEND_PORT)"; FRONTEND_PORT="${FRONTEND_PORT:-8095}"
+FRONTEND_REGISTRY="$(get_env FRONTEND_REGISTRY)"
 
-BUCKET=$(getvalue S3Bucket__BucketName)
-log "Ensuring MinIO bucket '${BUCKET}' exists..."
-docker run --rm --network sf-network \
-  minio/mc sh -c "
-    mc alias set local http://minio:9000 minioadmin minioadmin &&
-    mc mb --ignore-existing local/${BUCKET}
-  "
+# Host IP for presigned face-crop URLs (browser must reach MinIO directly)
+if [ -z "${HOST_S3_IP:-}" ]; then HOST_S3_IP="$(detect_host_ip || true)"; fi
+if [ -n "${HOST_S3_IP:-}" ]; then export HOST_S3_IP; log "host IP for crop URLs: $HOST_S3_IP"
+else warn "could not detect host LAN IP — face thumbnails in the dashboard may not load (re-run with HOST_S3_IP=<ip>)"; fi
 
-# ── SmartFace migrations ───────────────────────────────────────────────────────
+# Ensure Hub S3 bucket exists
+HUB_BUCKET="corridor-foundation"
+docker run --rm --network sf-network --entrypoint sh minio/mc -c \
+  "mc alias set l http://minio:9000 minioadmin minioadmin >/dev/null && \
+   mc mb --ignore-existing l/$HUB_BUCKET >/dev/null" >/dev/null 2>&1 \
+  && ok "bucket ready ($HUB_BUCKET)" || warn "bucket create failed (Hub may auto-create)"
 
-log "Running SmartFace database migrations..."
-docker compose run --rm SFBase
+if [ "$NO_CIGS" -eq 0 ]; then
+  step "CIGS — ${HARBOR}corridor-identity-grouping-service:${CIGS_VERSION}"
+  dc_sceg up -d cigs \
+    || die "CIGS failed to start — could not pull/run ${HARBOR}corridor-identity-grouping-service:${CIGS_VERSION}"
+  wait_http "http://localhost:8096/actuator/health" 120 '"status":"UP"' \
+    || { warn "CIGS not UP in 120s — last logs:"; dc_sceg logs --tail 25 cigs | sed 's/^/    /'; die "CIGS failed"; }
+  ok "CIGS up (http://localhost:8096)"
+fi
 
-# ── Main services ──────────────────────────────────────────────────────────────
+step "Hub — ${HARBOR}corridor-foundation-service:${HUB_VERSION}"
+[ -f "$SC_DIR/hub/hub.env" ] || die "hub/hub.env missing"
+dc_sceg up -d hub \
+  || die "Hub failed to start — could not pull/run ${HARBOR}corridor-foundation-service:${HUB_VERSION}"
+wait_http "http://localhost:8090/corridor-foundation/actuator/health" 150 '"status":"UP"' \
+  || { warn "Hub not UP in 150s — last logs:"; dc_sceg logs --tail 25 hub | sed 's/^/    /'; die "Hub failed"; }
+ok "Hub up"
 
-log "Starting Smart Corridors and e-Gates services..."
-docker compose up -d
+if [ "$NO_FRONTEND" -eq 0 ]; then
+  step "Corridor dashboard — ${FRONTEND_REGISTRY}biometriccorridor:${FRONTEND_VERSION}"
+  dc_sceg up -d frontend \
+    || die "Frontend failed — could not pull/run ${FRONTEND_REGISTRY}biometriccorridor:${FRONTEND_VERSION}"
+  wait_http "http://localhost:${FRONTEND_PORT}/" 60 \
+    || { warn "Dashboard not serving on :${FRONTEND_PORT} in 60s"; dc_sceg logs --tail 25 frontend | sed 's/^/    /'; die "frontend failed"; }
+  ok "Dashboard up"
+fi
 
-log ""
-log "All services started."
-log "  SmartFace Station : http://localhost:8000"
-log "  REST API          : http://localhost:8098"
-log "  GraphQL API       : http://localhost:8097"
-log "  OData API         : http://localhost:8099"
-log "  RabbitMQ UI       : http://localhost:15672  (guest/guest)"
-log "  MinIO Console     : http://localhost:9001   (minioadmin/minioadmin)"
-log "  pgAdmin           : http://localhost:7070   (admin@admin.com/admin)"
+echo
+echo "${G}════════════════════════════════════════════════════════════════════${Z}"
+echo "${G} Smart Corridors & e-Gates is UP.${Z}"
+[ "$NO_FRONTEND" -eq 0 ] && echo "   Corridor dashboard   : http://localhost:${FRONTEND_PORT}   ◀ the UI"
+echo "   Hub GraphiQL         : http://localhost:8090/corridor-foundation/graphiql"
+echo "   Hub GraphQL          : http://localhost:8090/corridor-foundation/graphql"
+[ "$NO_CIGS" -eq 0 ]    && echo "   CIGS health          : http://localhost:8096/actuator/health"
+echo "   SmartFace Station UI : http://localhost:8000"
+echo "   VPP REST / GraphQL   : http://localhost:8098   ws://localhost:8097/graphql"
+echo "   RabbitMQ mgmt        : http://localhost:15672  (guest/guest)"
+echo "   MinIO console        : http://localhost:9001   (minioadmin/minioadmin)"
+echo
+echo "   Stop everything      : ./stop.sh   (add --wipe to drop data volumes)"
+echo "${G}════════════════════════════════════════════════════════════════════${Z}"

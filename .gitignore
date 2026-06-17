@@ -1,0 +1,18 @@
+# Licensed material — never commit
+secrets/iengine.lic
+secrets/cigs.env
+vpp/iengine.lic
+
+# Runtime artefacts
+vpp/.run/
+smart-corridors-and-e-gates/.run/
+.run/
+
+# Test videos (large binaries) — keep the README, ignore everything else
+test-data/*.mp4
+test-data/*.mkv
+test-data/*.avi
+
+# macOS
+.DS_Store
+__MACOSX/

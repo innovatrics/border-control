@@ -1,218 +1,71 @@
-version: "3"
-
-# Smart Corridors and e-Gates — all-in-one runnable sample
-# Based on SmartFace (https://github.com/innovatrics/smartface)
-
-x-sf-common: &sf-common
-  env_file:
-    - .env
-  volumes:
-    - ./iengine.lic:/etc/innovatrics/iengine.lic:ro
-  networks:
-    - sf-network
-  restart: unless-stopped
+# Smart Corridors & e-Gates — solution services
+#
+#   • hub    — Smart Corridors & e-Gates Hub (formerly Foundation Service). Subscribes to VPP
+#              (sf-graphql-api) + CIGS, writes to RabbitMQ (rmq) and MinIO (minio), and serves
+#              GraphQL/GraphiQL on :8090/corridor-foundation. Runtime wiring lives in hub/hub.env.
+#   • cigs   — Corridor Identity Grouping Service. Reads VPP's GraphQL, groups identities,
+#              emits identityCreated/Updated. Needs the IFace license + speed-match phrase.
+#   • frontend — Corridor dashboard (Vite/React SPA served by nginx).
+#
+# All services share the external sf-network created by vpp/run.sh.
+# run.sh brings these up AFTER VPP is healthy; --no-hub / --no-cigs / --no-frontend to skip.
 
 services:
-
-  # ── Core infrastructure ────────────────────────────────────────────────────
-
-  SFBase:
-    <<: *sf-common
-    image: ${REGISTRY}sf-base:${SF_VERSION}
-    command: run-migrations
-
-  SFGroup:
-    <<: *sf-common
-    image: ${REGISTRY}sf-group:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFStreamDataDbWorker:
-    <<: *sf-common
-    image: ${REGISTRY}sf-stream-data-db-worker:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  # ── API layer ──────────────────────────────────────────────────────────────
-
-  SFApi:
-    <<: *sf-common
-    image: ${REGISTRY}sf-api:${SF_VERSION}
+  hub:
+    image: ${HARBOR}corridor-foundation-service:${HUB_VERSION}
+    container_name: sceg-hub
+    restart: unless-stopped
+    # Baked Spring config serves on 8090 with context-path /corridor-foundation.
     ports:
-      - 8098:80
-    depends_on:
-      - SFBase
-
-  SFGraphQLApi:
-    <<: *sf-common
-    image: ${REGISTRY}sf-graphql-api:${SF_VERSION}
-    ports:
-      - 8097:80
-    depends_on:
-      - SFBase
-
-  SFODataApi:
-    <<: *sf-common
-    image: ${REGISTRY}sf-odata-api:${SF_VERSION}
-    ports:
-      - 8099:80
-    depends_on:
-      - SFBase
-
-  # ── Camera services ────────────────────────────────────────────────────────
-
-  SFCam1:
-    <<: *sf-common
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    environment:
-      CameraIndex: 1
-      CAMERA_PREVIEW_PORT: 30001
-    ports:
-      - 30001:30001
-    depends_on:
-      - SFBase
-
-  SFCam2:
-    <<: *sf-common
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    environment:
-      CameraIndex: 2
-      CAMERA_PREVIEW_PORT: 30002
-    ports:
-      - 30002:30002
-    depends_on:
-      - SFBase
-
-  SFCam3:
-    <<: *sf-common
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    environment:
-      CameraIndex: 3
-      CAMERA_PREVIEW_PORT: 30003
-    ports:
-      - 30003:30003
-    depends_on:
-      - SFBase
-
-  SFCam4:
-    <<: *sf-common
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    environment:
-      CameraIndex: 4
-      CAMERA_PREVIEW_PORT: 30004
-    ports:
-      - 30004:30004
-    depends_on:
-      - SFBase
-
-  SFCam5:
-    <<: *sf-common
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    environment:
-      CameraIndex: 5
-      CAMERA_PREVIEW_PORT: 30005
-    ports:
-      - 30005:30005
-    depends_on:
-      - SFBase
-
-  # ── Video pipeline ─────────────────────────────────────────────────────────
-
-  SFVideoAggregator:
-    <<: *sf-common
-    image: ${REGISTRY}sf-video-aggregator:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFVideoCollector:
-    <<: *sf-common
-    image: ${REGISTRY}sf-video-collector:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFEdgeStreamProcessor:
-    <<: *sf-common
-    image: ${REGISTRY}sf-edge-stream-processor:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFStateSynchronizer:
-    <<: *sf-common
-    image: ${REGISTRY}sf-state-synchronizer:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  # ── Detection & recognition ────────────────────────────────────────────────
-
-  SFFaceDetector:
-    <<: *sf-common
-    image: ${REGISTRY}sf-face-detector:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFFaceExtractor:
-    <<: *sf-common
-    image: ${REGISTRY}sf-face-extractor:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFPedestrianDetector:
-    <<: *sf-common
-    image: ${REGISTRY}sf-pedestrian-detector:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFObjectDetector:
-    <<: *sf-common
-    image: ${REGISTRY}sf-object-detector:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFLivenessDetector:
-    <<: *sf-common
-    image: ${REGISTRY}sf-liveness:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  # ── Matching ───────────────────────────────────────────────────────────────
-
-  SFWatchlistMatcher:
-    <<: *sf-common
-    image: ${REGISTRY}sf-watchlist-matcher:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  SFFaceMatcher:
-    <<: *sf-common
-    image: ${REGISTRY}sf-face-matcher:${SF_VERSION}
-    depends_on:
-      - SFBase
-
-  # ── Access control ─────────────────────────────────────────────────────────
-
-  SFAccessController:
-    <<: *sf-common
-    image: ${REGISTRY}sf-access-controller:${AC_VERSION}
+      - "8090:8090"
     env_file:
-      - .env
-      - .env.sfac
-    depends_on:
-      - SFBase
+      - ./hub/hub.env
+    environment:
+      # S3 endpoint is set HERE (overrides hub.env) because it must be the host's browser-reachable
+      # LAN IP: the Hub hands the dashboard PRESIGNED crop URLs the BROWSER fetches from MinIO directly.
+      # run.sh injects HOST_S3_IP; falls back to in-network 'minio' if unset (crops won't load in browser).
+      STORAGE_S3_ENDPOINT: http://${HOST_S3_IP:-minio}:9000
 
-  # ── SmartFace Station (operator UI) ───────────────────────────────────────
-
-  SFStation:
-    <<: *sf-common
-    image: ${REGISTRY}sf-station:${SFS_VERSION}
-    env_file:
-      - .env
-      - .env.sfstation
+  cigs:
+    image: ${HARBOR}corridor-identity-grouping-service:${CIGS_VERSION}
+    container_name: sceg-cigs
+    restart: unless-stopped
     ports:
-      - 8000:8000
-    depends_on:
-      - SFApi
-      - SFGraphQLApi
+      - "8096:80"
+    environment:
+      # Speed-match license phrase — sourced by run.sh from ../secrets/cigs.env into the environment.
+      IFACE_SPEED_MATCH_PHRASE: ${IFACE_SPEED_MATCH_PHRASE}
+      # Upstream = VPP GraphQL, reachable in-network as sf-graphql-api:80.
+      CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_HOST: sf-graphql-api
+      CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_PORT: 80
+      CORRIDOR_IDENTITY_GROUPING_STREAMS_APPLY_FOR_ALL_STREAMS: "true"
+      # Face-filters (tuned for test2/test3 clips; re-widen to MIN=0, angles ±180 for far-field feeds).
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_REQUIRE_FACE_TEMPLATE: "true"
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_FACE_SIZE_MIN: 15
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_FACE_QUALITY_MIN: 100
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_TEMPLATE_QUALITY_MIN: 50
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_YAW_ANGLE_MIN: -50
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_YAW_ANGLE_MAX: 50
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_PITCH_ANGLE_MIN: -50
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_PITCH_ANGLE_MAX: 50
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_ROLL_ANGLE_MIN: -50
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_ROLL_ANGLE_MAX: 50
+    volumes:
+      - ../secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+
+  frontend:
+    image: ${FRONTEND_REGISTRY}biometriccorridor:${FRONTEND_VERSION}
+    container_name: sceg-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8095}:80"
+    environment:
+      # Upstreams for nginx — in-network container DNS names.
+      FOUNDATION_URL: http://sceg-hub:8090
+      SMARTFACE_GQL_URL: http://SFGraphQLApi:80
+      SMARTFACE_API_URL: http://SFApi:80
 
 networks:
-  sf-network:
+  default:
+    name: sf-network
     external: true
