@@ -1,0 +1,7 @@
+# Licensed material — never commit
+smart-corridors-and-e-gates/secrets/iengine.lic
+smart-corridors-and-e-gates/vpp/iengine.lic
+
+# macOS
+.DS_Store
+__MACOSX/
