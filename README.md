@@ -1,4 +1,4 @@
-# border-control
+# Innovatrics's Border Control cluster
 
 Multi-solution repository. Each folder is a self-contained, runnable solution.
 
