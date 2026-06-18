@@ -1,29 +1,13 @@
-# Smart Corridors & e-Gates — solution services
-#
-#   • hub    — Smart Corridors & e-Gates Hub (formerly Foundation Service). Subscribes to VPP
-#              (sf-graphql-api) + CIGS, writes to RabbitMQ (rmq) and MinIO (minio), and serves
-#              GraphQL/GraphiQL on :8090/corridor-foundation. Runtime wiring lives in hub/hub.env.
-#   • cigs   — Corridor Identity Grouping Service. Reads VPP's GraphQL, groups identities,
-#              emits identityCreated/Updated. Needs the IFace license + speed-match phrase.
-#   • frontend — Corridor dashboard (Vite/React SPA served by nginx).
-#
-# All services share the external sf-network created by vpp/run.sh.
-# run.sh brings these up AFTER VPP is healthy; --no-hub / --no-cigs / --no-frontend to skip.
-
 services:
   hub:
     image: ${HARBOR}corridor-foundation-service:${HUB_VERSION}
     container_name: sceg-hub
     restart: unless-stopped
-    # Baked Spring config serves on 8090 with context-path /corridor-foundation.
     ports:
       - "8090:8090"
     env_file:
-      - ./hub/hub.env
+      - ./.env.hub
     environment:
-      # S3 endpoint is set HERE (overrides hub.env) because it must be the host's browser-reachable
-      # LAN IP: the Hub hands the dashboard PRESIGNED crop URLs the BROWSER fetches from MinIO directly.
-      # run.sh injects HOST_S3_IP; falls back to in-network 'minio' if unset (crops won't load in browser).
       STORAGE_S3_ENDPOINT: http://${HOST_S3_IP:-minio}:9000
 
   cigs:
@@ -33,13 +17,9 @@ services:
     ports:
       - "8096:80"
     environment:
-      # Speed-match license phrase — sourced by run.sh from ../secrets/cigs.env into the environment.
-      IFACE_SPEED_MATCH_PHRASE: ${IFACE_SPEED_MATCH_PHRASE}
-      # Upstream = VPP GraphQL, reachable in-network as sf-graphql-api:80.
       CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_HOST: sf-graphql-api
       CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_PORT: 80
       CORRIDOR_IDENTITY_GROUPING_STREAMS_APPLY_FOR_ALL_STREAMS: "true"
-      # Face-filters (tuned for test2/test3 clips; re-widen to MIN=0, angles ±180 for far-field feeds).
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_REQUIRE_FACE_TEMPLATE: "true"
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_FACE_SIZE_MIN: 15
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_FACE_QUALITY_MIN: 100
@@ -51,7 +31,7 @@ services:
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_ROLL_ANGLE_MIN: -50
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_ROLL_ANGLE_MAX: 50
     volumes:
-      - ../secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   frontend:
     image: ${FRONTEND_REGISTRY}biometriccorridor:${FRONTEND_VERSION}
@@ -60,7 +40,6 @@ services:
     ports:
       - "${FRONTEND_PORT:-8095}:80"
     environment:
-      # Upstreams for nginx — in-network container DNS names.
       FOUNDATION_URL: http://sceg-hub:8090
       SMARTFACE_GQL_URL: http://SFGraphQLApi:80
       SMARTFACE_API_URL: http://SFApi:80
