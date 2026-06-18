@@ -1,25 +1,50 @@
 # Smart Corridors & e-Gates
 
-Docker Compose stack for the Smart Corridors and e-Gates solution.
+Docker Compose stack for the Smart Corridors & e-Gates solution.
 
-## Prerequisites
+## Quick start
 
-- Docker Engine ≥ 20.10 + Compose plugin
-- `secrets/iengine.lic` — from [Innovatrics Customer Portal](https://customerportal.innovatrics.com)
+1. Clone this repository onto the target machine or server.
+2. Obtain a license from [Innovatrics Customer Portal](https://customerportal.innovatrics.com) — see [License](#license) below.
+3. Navigate to the `smart-corridors-and-e-gates/` folder.
+4. Place `iengine.lic` into `./secrets/`.
+5. Run:
 
-### Registry login
+```bash
+bash run.sh
+```
+
+## License
+
+The platform requires an `iengine.lic` file tied to the hardware of the machine it runs on.
+
+To get your hardware ID, run:
+
+```bash
+docker run registry.gitlab.com/innovatrics/smartface/license-manager:3.2.7
+```
+
+Provide this ID when requesting a license from the [Customer Portal](https://customerportal.innovatrics.com).
+
+Once you have the file, place it at `./secrets/iengine.lic` before running `run.sh`.
+
+## Registry login
+
+Before the first run, authenticate to both registries:
 
 ```bash
 docker login registry.gitlab.com
 docker login registry.dot.innovatrics.com -u 'inno-border-control+puller' -p '<token>'
 ```
 
-## Usage
+The Harbor token is provided separately by Innovatrics.
+
+## Scripts
 
 ```bash
-bash run.sh            # start
+bash run.sh            # start all services
 bash stop.sh           # stop, keep data
-bash factory-reset.sh  # stop + wipe everything
+bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 ```
 
 ## Endpoints
@@ -30,20 +55,21 @@ bash factory-reset.sh  # stop + wipe everything
 | Hub GraphQL | http://localhost:8090/corridor-foundation/graphql | — |
 | Hub GraphiQL | http://localhost:8090/corridor-foundation/graphiql | — |
 | CIGS health | http://localhost:8096/actuator/health | — |
+| VPP Admin | http://localhost:8000 | — |
 | RabbitMQ | http://localhost:15672 | guest / guest |
 | MinIO | http://localhost:9001 | minioadmin / minioadmin |
 | pgAdmin | http://localhost:7070 | admin@admin.com / Test1234 |
 
 ## Configuration
 
-### `.env` — image versions
+### `.env` — service versions
 
 | Variable | Description |
 |----------|-------------|
 | `CIGS_VERSION` | Corridor Identity Grouping Service version |
 | `HUB_VERSION` | Smart Corridors & e-Gates Hub version |
 | `FRONTEND_VERSION` | Frontend image tag |
-| `FRONTEND_PORT` | Dashboard port (default 8095) |
+| `FRONTEND_PORT` | Dashboard port (default `8095`) |
 
 ### `.env.hub` — Hub wiring
 
@@ -51,6 +77,6 @@ bash factory-reset.sh  # stop + wipe everything
 |-------|---------------|
 | Watchlists | `VPP_ADAPTER_ALLOWED_WATCHLISTS` — watchlist IDs that grant GREEN clearance (comma-separated) |
 | Units | `FOUNDATION_UNITS_0_*` — corridor/e-gate unit definitions with their camera IDs |
-| Storage | `STORAGE_S3_BUCKET`, credentials |
+| Storage | `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY` |
 
-`HOST_S3_IP` — set this to your host LAN IP so the browser can load face crop thumbnails from MinIO directly. Defaults to in-network `minio` (thumbnails won't load outside Docker without it).
+`HOST_S3_IP` — set this to the host LAN IP so the browser can load face crop thumbnails from MinIO directly. Defaults to the in-network `minio` (thumbnails won't load in the browser without it).
