@@ -421,6 +421,9 @@ services:
       - FaceValidation__Sharpness__Max
       - PalmValidation__PalmQuality__Min
       - PalmValidation__PalmQuality__Max
+      - Notifications__IncludeTemplates
+      - TrackletRecovery__TrackletRecoveryTriggerPeriodSeconds
+      - TrackletRecovery__MinimumVisualObjectAgeForTrackletRecoverySeconds
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
 
