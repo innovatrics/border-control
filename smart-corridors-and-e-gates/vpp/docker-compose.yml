@@ -458,6 +458,7 @@ services:
       - AppSettings__Log_RollingFile_Enabled=false
       - AppSettings__Log_JsonConsole_Enabled
       - AppSettings__Log_RabbitMq_Enabled
+      - Notifications__IncludeTemplates
       - Tracing__Enabled
       - OTEL_TRACES_SAMPLER
       - OTEL_TRACES_SAMPLER_ARG
