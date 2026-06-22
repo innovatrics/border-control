@@ -85,9 +85,9 @@ echo $VERSION
 echo $REGISTRY
 
 # create mqtt user for rmq mqtt plugin
-docker exec -it rmq /opt/rabbitmq/sbin/rabbitmqctl add_user mqtt mqtt || true
-docker exec -it rmq /opt/rabbitmq/sbin/rabbitmqctl set_user_tags mqtt administrator || true
-docker exec -it rmq /opt/rabbitmq/sbin/rabbitmqctl set_permissions -p "/" mqtt ".*" ".*" ".*" || true
+docker compose -f sf_dependencies/docker-compose.yml exec rmq /opt/rabbitmq/sbin/rabbitmqctl add_user mqtt mqtt || true
+docker compose -f sf_dependencies/docker-compose.yml exec rmq /opt/rabbitmq/sbin/rabbitmqctl set_user_tags mqtt administrator || true
+docker compose -f sf_dependencies/docker-compose.yml exec rmq /opt/rabbitmq/sbin/rabbitmqctl set_permissions -p "/" mqtt ".*" ".*" ".*" || true
 
 # stop smartface core services before migration
 docker compose down --remove-orphans
@@ -106,7 +106,7 @@ if [[ "$DB_ENGINE" == "MsSql" ]]; then
             --dependencies-availability-timeout 120
 elif [[ "$DB_ENGINE" == "PgSql" ]]; then
     # create SmartFace database in PgSql
-    docker exec pgsql psql -U postgres -c "CREATE DATABASE smartface" || true
+    docker compose -f sf_dependencies/docker-compose.yml exec pgsql psql -U postgres -c "CREATE DATABASE smartface" || true
     # run database migration to current version
     docker run --rm --name admin_migration --volume $(pwd)/iengine.lic:/etc/innovatrics/iengine.lic --network sf-network ${SF_ADMIN_IMAGE} \
         run-migration \

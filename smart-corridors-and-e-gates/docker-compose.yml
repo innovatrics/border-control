@@ -41,8 +41,8 @@ services:
       - "${FRONTEND_PORT:-8095}:80"
     environment:
       FOUNDATION_URL: http://sceg-hub:8090
-      SMARTFACE_GQL_URL: http://SFGraphQLApi:80
-      SMARTFACE_API_URL: http://SFApi:80
+      SMARTFACE_GQL_URL: http://sf-graphql-api:80
+      SMARTFACE_API_URL: http://api:80
 
 networks:
   default:
