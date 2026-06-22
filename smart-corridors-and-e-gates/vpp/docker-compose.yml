@@ -121,6 +121,7 @@ services:
       - 4318
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -163,6 +164,7 @@ services:
       - 4318
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -205,6 +207,7 @@ services:
       - 4318
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -247,6 +250,7 @@ services:
       - 4318
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -289,6 +293,7 @@ services:
       - 4318
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -330,6 +335,7 @@ services:
       - 4318
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -421,7 +427,6 @@ services:
       - FaceValidation__Sharpness__Max
       - PalmValidation__PalmQuality__Min
       - PalmValidation__PalmQuality__Max
-      - Notifications__IncludeTemplates
       - TrackletRecovery__TrackletRecoveryTriggerPeriodSeconds
       - TrackletRecovery__MinimumVisualObjectAgeForTrackletRecoverySeconds
     volumes:
@@ -440,6 +445,7 @@ services:
       - 4318
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -458,7 +464,6 @@ services:
       - AppSettings__Log_RollingFile_Enabled=false
       - AppSettings__Log_JsonConsole_Enabled
       - AppSettings__Log_RabbitMq_Enabled
-      - Notifications__IncludeTemplates
       - Tracing__Enabled
       - OTEL_TRACES_SAMPLER
       - OTEL_TRACES_SAMPLER_ARG
@@ -893,6 +898,7 @@ services:
       application: smartface
     restart: unless-stopped
     environment:
+      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
