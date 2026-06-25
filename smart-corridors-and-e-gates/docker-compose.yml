@@ -1,6 +1,6 @@
 services:
   hub:
-    image: ${HARBOR}corridor-foundation-service:${HUB_VERSION}
+    image: ${REGISTRY}corridor-foundation-service:${HUB_VERSION}
     container_name: sceg-hub
     restart: unless-stopped
     ports:
@@ -11,7 +11,7 @@ services:
       STORAGE_S3_ENDPOINT: http://${HOST_S3_IP:-minio}:9000
 
   cigs:
-    image: ${HARBOR}corridor-identity-grouping-service:${CIGS_VERSION}
+    image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
     container_name: sceg-cigs
     restart: unless-stopped
     ports:
@@ -34,7 +34,7 @@ services:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   frontend:
-    image: ${FRONTEND_REGISTRY}biometriccorridor:${FRONTEND_VERSION}
+    image: ${REGISTRY}biometriccorridor:${FRONTEND_VERSION}
     container_name: sceg-frontend
     restart: unless-stopped
     ports:
