@@ -49,16 +49,16 @@ bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 
 ## Endpoints
 
-| Service            | URL                                                | Credentials                |
-| ------------------ | -------------------------------------------------- | -------------------------- |
-| Corridor dashboard | http://localhost:8095                              | —                          |
-| Hub GraphQL        | http://localhost:8090/corridor-foundation/graphql  | —                          |
-| Hub GraphiQL       | http://localhost:8090/corridor-foundation/graphiql | —                          |
-| CIGS health        | http://localhost:8096/actuator/health              | —                          |
-| VPP Admin          | http://localhost:8000                              | —                          |
-| RabbitMQ           | http://localhost:15672                             | guest / guest              |
-| MinIO              | http://localhost:9001                              | minioadmin / minioadmin    |
-| pgAdmin            | http://localhost:7070                              | admin@admin.com / Test1234 |
+| Service            | URL                                          | Credentials                |
+| ------------------ | -------------------------------------------- | -------------------------- |
+| Corridor dashboard | http://localhost:8095                        | —                          |
+| Hub GraphQL        | http://localhost:8090/corridor-hub/graphql   | —                          |
+| Hub GraphiQL       | http://localhost:8090/corridor-hub/graphiql  | —                          |
+| CIGS health        | http://localhost:8096/actuator/health        | —                          |
+| VPP Admin          | http://localhost:8000                        | —                          |
+| RabbitMQ           | http://localhost:15672                       | guest / guest              |
+| MinIO              | http://localhost:9001                        | minioadmin / minioadmin    |
+| pgAdmin            | http://localhost:7070                        | admin@admin.com / Test1234 |
 
 ## Configuration
 
@@ -73,10 +73,10 @@ bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 
 ### `.env.hub` — Hub wiring
 
-| Group      | Key variables                                                                                 |
-| ---------- | --------------------------------------------------------------------------------------------- |
-| Watchlists | `VPP_ADAPTER_ALLOWED_WATCHLISTS` — watchlist IDs that grant GREEN clearance (comma-separated) |
-| Units      | `FOUNDATION_UNITS_0_*` — corridor/e-gate unit definitions with their camera IDs               |
-| Storage    | `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY`                         |
+| Group      | Key variables                                                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Watchlists | `VPP_ADAPTER_ALLOWED_WATCHLISTS` — watchlist IDs that grant GREEN clearance (comma-separated)                                  |
+| Units      | `HUB_UNITS_0_*` — corridor/e-gate unit definitions with their camera IDs (empty/unset or `*` ⇒ the unit processes all cameras) |
+| Storage    | `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY`                                                          |
 
-`HOST_S3_IP` — set this to the host LAN IP so the browser can load face crop thumbnails from MinIO directly. Defaults to the in-network `minio` (thumbnails won't load in the browser without it).
+Face crop thumbnails stream through the Hub's in-service image proxy (`/corridor-hub/images`) — the browser fetches crops through the Hub, never directly from MinIO, so no host-networking setup is required. `STORAGE_S3_*` only configures the Hub's server-side access to MinIO (in-network `minio:9000`).
