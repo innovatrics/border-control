@@ -4,4 +4,4 @@ Everything in this folder is **Innovatrics-licensed** and stays internal. The `.
 
 | File | What | If missing |
 |---|---|---|
-| `iengine.lic` | IFace engine license. Mounted into every SmartFace container and CIGS. | SmartFace + CIGS refuse to start. Drop in a valid `iengine.lic`. |
+| `iengine.lic` | IFace engine license. Mounted into the platform containers and CIGS. | The platform and CIGS refuse to start. Drop in a valid `iengine.lic`. |

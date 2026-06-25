@@ -33,11 +33,11 @@ Once you have the file, place it at `./secrets/iengine.lic` before running `run.
 Before the first run, authenticate to both registries:
 
 ```bash
-docker login registry.gitlab.com
-docker login registry.dot.innovatrics.com -u 'inno-border-control+puller' -p '<token>'
+docker login registry.gitlab.com -u USER_NAME -p PASSWORD
+docker login registry.dot.innovatrics.com -u USER_NAME -p PASSWORD
 ```
 
-The Harbor token is provided separately by Innovatrics.
+The registry USER_NAME and PASSWORD is provided separately by Innovatrics.
 
 ## Scripts
 
@@ -49,34 +49,34 @@ bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 
 ## Endpoints
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| Corridor dashboard | http://localhost:8095 | — |
-| Hub GraphQL | http://localhost:8090/corridor-foundation/graphql | — |
-| Hub GraphiQL | http://localhost:8090/corridor-foundation/graphiql | — |
-| CIGS health | http://localhost:8096/actuator/health | — |
-| VPP Admin | http://localhost:8000 | — |
-| RabbitMQ | http://localhost:15672 | guest / guest |
-| MinIO | http://localhost:9001 | minioadmin / minioadmin |
-| pgAdmin | http://localhost:7070 | admin@admin.com / Test1234 |
+| Service            | URL                                                | Credentials                |
+| ------------------ | -------------------------------------------------- | -------------------------- |
+| Corridor dashboard | http://localhost:8095                              | —                          |
+| Hub GraphQL        | http://localhost:8090/corridor-foundation/graphql  | —                          |
+| Hub GraphiQL       | http://localhost:8090/corridor-foundation/graphiql | —                          |
+| CIGS health        | http://localhost:8096/actuator/health              | —                          |
+| VPP Admin          | http://localhost:8000                              | —                          |
+| RabbitMQ           | http://localhost:15672                             | guest / guest              |
+| MinIO              | http://localhost:9001                              | minioadmin / minioadmin    |
+| pgAdmin            | http://localhost:7070                              | admin@admin.com / Test1234 |
 
 ## Configuration
 
 ### `.env` — service versions
 
-| Variable | Description |
-|----------|-------------|
-| `CIGS_VERSION` | Corridor Identity Grouping Service version |
-| `HUB_VERSION` | Smart Corridors & e-Gates Hub version |
-| `FRONTEND_VERSION` | Frontend image tag |
-| `FRONTEND_PORT` | Dashboard port (default `8095`) |
+| Variable           | Description                                |
+| ------------------ | ------------------------------------------ |
+| `CIGS_VERSION`     | Corridor Identity Grouping Service version |
+| `HUB_VERSION`      | Smart Corridors & e-Gates Hub version      |
+| `FRONTEND_VERSION` | Frontend image tag                         |
+| `FRONTEND_PORT`    | Dashboard port (default `8095`)            |
 
 ### `.env.hub` — Hub wiring
 
-| Group | Key variables |
-|-------|---------------|
+| Group      | Key variables                                                                                 |
+| ---------- | --------------------------------------------------------------------------------------------- |
 | Watchlists | `VPP_ADAPTER_ALLOWED_WATCHLISTS` — watchlist IDs that grant GREEN clearance (comma-separated) |
-| Units | `FOUNDATION_UNITS_0_*` — corridor/e-gate unit definitions with their camera IDs |
-| Storage | `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY` |
+| Units      | `FOUNDATION_UNITS_0_*` — corridor/e-gate unit definitions with their camera IDs               |
+| Storage    | `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY`                         |
 
 `HOST_S3_IP` — set this to the host LAN IP so the browser can load face crop thumbnails from MinIO directly. Defaults to the in-network `minio` (thumbnails won't load in the browser without it).
