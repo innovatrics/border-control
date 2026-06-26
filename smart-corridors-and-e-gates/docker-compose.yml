@@ -1,6 +1,6 @@
 services:
   hub:
-    image: ${REGISTRY}corridor-foundation-service:${HUB_VERSION}
+    image: ${REGISTRY}corridor-hub:${HUB_VERSION}
     container_name: sceg-hub
     restart: unless-stopped
     ports:
@@ -8,7 +8,7 @@ services:
     env_file:
       - ./.env.hub
     environment:
-      STORAGE_S3_ENDPOINT: http://${HOST_S3_IP:-minio}:9000
+      STORAGE_S3_ENDPOINT: http://minio:9000
 
   cigs:
     image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
@@ -17,6 +17,8 @@ services:
     ports:
       - "8096:80"
     environment:
+      # No OTLP collector on localhost:4317 in this setup ⇒ silence tracing export.
+      TRACING_ENABLED: "false"
       CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_HOST: sf-graphql-api
       CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_PORT: 80
       CORRIDOR_IDENTITY_GROUPING_STREAMS_APPLY_FOR_ALL_STREAMS: "true"
@@ -34,13 +36,13 @@ services:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   frontend:
-    image: ${REGISTRY}biometriccorridor:${FRONTEND_VERSION}
+    image: ${REGISTRY}corridor-operational-display:${FRONTEND_VERSION}
     container_name: sceg-frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-8095}:80"
     environment:
-      FOUNDATION_URL: http://sceg-hub:8090
+      HUB_URL: http://sceg-hub:8090
       SMARTFACE_GQL_URL: http://SFGraphQLApi:80
       SMARTFACE_API_URL: http://SFApi:80
 
