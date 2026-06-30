@@ -11,7 +11,7 @@ Docker Compose stack for the Smart Corridors & e-Gates solution.
 5. Run:
 
 ```bash
-bash run.sh
+bash start.sh
 ```
 
 ## License
@@ -26,7 +26,7 @@ docker run registry.gitlab.com/innovatrics/smartface/license-manager:3.2.7
 
 Provide this ID when requesting a license from the [Customer Portal](https://customerportal.innovatrics.com).
 
-Once you have the file, place it at `./secrets/iengine.lic` before running `run.sh`.
+Once you have the file, place it at `./secrets/iengine.lic` before running `start.sh`.
 
 ## Registry login
 
@@ -42,7 +42,7 @@ The registry USER_NAME and PASSWORD is provided separately by Innovatrics.
 ## Scripts
 
 ```bash
-bash run.sh            # start all services
+bash start.sh          # start all services
 bash stop.sh           # stop, keep data
 bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 ```
