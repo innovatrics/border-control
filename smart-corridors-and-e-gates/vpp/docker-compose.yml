@@ -124,7 +124,6 @@ services:
       - 4318
     restart: unless-stopped
     environment:
-      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -149,6 +148,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
     # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
@@ -167,7 +167,6 @@ services:
       - 4318
     restart: unless-stopped
     environment:
-      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -192,6 +191,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
     # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
@@ -210,7 +210,6 @@ services:
       - 4318
     restart: unless-stopped
     environment:
-      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -235,6 +234,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
     # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
@@ -253,7 +253,6 @@ services:
       - 4318
     restart: unless-stopped
     environment:
-      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -278,6 +277,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
     # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
@@ -296,7 +296,6 @@ services:
       - 4318
     restart: unless-stopped
     environment:
-      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -321,6 +320,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
     # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
@@ -338,7 +338,6 @@ services:
       - 4318
     restart: unless-stopped
     environment:
-      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -362,6 +361,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
     # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
@@ -411,6 +411,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
       - FaceValidation__Size__Min
       - FaceValidation__Size__Max
       - FaceValidation__AreaOnFrame__Min
@@ -449,7 +450,6 @@ services:
       - 4318
     restart: unless-stopped
     environment:
-      - Notifications__IncludeTemplates
       - RabbitMQ__Hostname
       - RabbitMQ__Username
       - RabbitMQ__Password
@@ -475,6 +475,7 @@ services:
       - OTEL_METRICS_EXPORTER
       - OTEL_EXPORTER_PROMETHEUS_HOST
       - OTEL_EXPORTER_PROMETHEUS_PORT
+      - Notifications__IncludeTemplates
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
 
