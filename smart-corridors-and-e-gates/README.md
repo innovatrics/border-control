@@ -16,7 +16,11 @@ bash run.sh
 
 ## License
 
-The platform requires an `iengine.lic` file tied to the hardware of the machine it runs on.
+The stack requires a single `iengine.lic` file tied to the hardware of the machine it runs on. The
+same file licenses every service: the SmartFace/VPP platform and CIGS use its iengine block, while the
+Hub and the operational-display frontend additionally require a `smart_corridor` block — without it
+those two services are fail-closed and refuse to serve. Request a license with the `smart_corridor`
+block enabled from the Customer Portal.
 
 To get your hardware ID, run:
 

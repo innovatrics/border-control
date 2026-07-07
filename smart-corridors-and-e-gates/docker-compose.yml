@@ -9,6 +9,11 @@ services:
       - ./.env.hub
     environment:
       STORAGE_S3_ENDPOINT: http://minio:9000
+    # Fail-closed SmartCorridor license gate: the hub refuses to start unless the mounted
+    # iengine.lic carries a valid, unexpired smart_corridor.hub block. One universal iengine.lic is
+    # shared by every service — VPP/CIGS read its iengine block, hub/frontend the smart_corridor block.
+    volumes:
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   cigs:
     image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
@@ -45,6 +50,11 @@ services:
       HUB_URL: http://sceg-hub:8090
       SMARTFACE_GQL_URL: http://SFGraphQLApi:80
       SMARTFACE_API_URL: http://SFApi:80
+    # Fail-closed operational_display license gate: the frontend serves a "not licensed"
+    # page unless the mounted iengine.lic carries a valid smart_corridor.operational_display block
+    # (same universal iengine.lic as the hub and CIGS).
+    volumes:
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
 networks:
   default:
