@@ -19,6 +19,16 @@ services:
     image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
     container_name: sceg-cigs
     restart: unless-stopped
+    # restart: only fires on process exit — a hung JVM (e.g. the 2026-07-14 crash-handler zombie,
+    # where PID 1 stayed alive but served nothing) needs healthcheck + autoheal to recover.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    labels:
+      autoheal: "true"
     ports:
       - "8096:80"
     environment:
@@ -41,10 +51,20 @@ services:
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
+  # NOTE: hub has no healthcheck — its buildpack image ships no shell/curl, so there is nothing
+  # to exec the probe with. Revisit if the hub image ever gains a probe binary.
   frontend:
     image: ${REGISTRY}corridor-operational-display:${FRONTEND_VERSION}
     container_name: sceg-frontend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      autoheal: "true"
     ports:
       - "${FRONTEND_PORT:-8095}:80"
     environment:
@@ -56,6 +76,18 @@ services:
     # (same universal iengine.lic as the hub and CIGS).
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+
+  # Restarts any container labeled autoheal=true once Docker marks it unhealthy. Plain Docker
+  # never restarts unhealthy containers on its own (restart policies react to exits only).
+  # Needs the docker socket, so it can restart peers — keep this service pinned and minimal.
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: sceg-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 networks:
   default:
