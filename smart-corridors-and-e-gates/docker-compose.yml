@@ -71,6 +71,12 @@ services:
       HUB_URL: http://sceg-hub:8090
       SMARTFACE_GQL_URL: http://SFGraphQLApi:80
       SMARTFACE_API_URL: http://SFApi:80
+      # SmartFace Station powers the live camera preview (operational-display 0.5.0). The
+      # frontend's nginx proxies the SPA's /smartface-video/<cameraId> WS to Station's /-/video bridge,
+      # so this is an in-network container URL like the two above — SFStation runs in the VPP stack
+      # (vpp/docker-compose.yml) on sf-network, published on :8000. Unset ⇒ Cameras panel shows
+      # "unavailable".
+      SMARTFACE_STATION_URL: http://SFStation:8000
     # Fail-closed operational_display license gate: the frontend serves a "not licensed"
     # page unless the mounted iengine.lic carries a valid smart_corridor.operational_display block
     # (same universal iengine.lic as the hub and CIGS).
