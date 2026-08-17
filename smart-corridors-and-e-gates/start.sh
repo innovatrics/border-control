@@ -8,6 +8,8 @@ set -e
 docker run --rm --network sf-network --entrypoint sh minio/mc -c \
   "mc alias set l http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing l/corridor-hub"
 
+sleep 10
+
 docker compose -f ./docker-compose.yml --env-file ./.env up -d
 
 echo ""
