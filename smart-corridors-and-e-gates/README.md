@@ -84,3 +84,45 @@ bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 | Storage    | `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY`                                                          |
 
 Face crop thumbnails stream through the Hub's in-service image proxy (`/corridor-hub/images`) — the browser fetches crops through the Hub, never directly from MinIO, so no host-networking setup is required. `STORAGE_S3_*` only configures the Hub's server-side access to MinIO (in-network `minio:9000`).
+
+### Zone notifications (Hub ≥ 0.4.0)
+
+The Hub can derive `zone.*` notifications (person entered / left / moved, occupancy, counts,
+avoiding-identification) with a **per-topic source switch** — each topic is computed from VPP
+tracklets, CIGS identities, or the MCT track stream. `.env.hub` ships a commented example block;
+`ZONE_PERSON_MOVED` (floor-plan coordinates) is MCT-only and needs the MCT overlay below. All
+topics arrive on the same `corridorEvents` GraphQL subscription as the identification events.
+
+## Multi-Camera Tracking (MCT)
+
+Optional overlay (`mct/docker-compose.yml`) that tracks people **across** corridor cameras and
+feeds the Hub's MCT-sourced zone notifications plus a live floor-plan visualizer.
+
+**What it needs beyond the base stack:**
+
+1. **A per-camera detection feed** from SmartFace Embedded Stream Processor cameras (MQTT,
+   `edge-stream/<clientId>/frame_data`). The overlay taps an existing feed broker read-only via
+   the `sfe-sp-mqtt-proxy` (client mode) — configure `MCT_SOURCE_*` in `.env.mct`. Plain RTSP
+   demo cameras of the base stack do **not** produce this feed.
+2. **A calibration model** of your cameras (homographies + floor plan), imported into the MCT
+   Config API (`:8002`) under the name set as `MCT_MODEL`. Calibration is produced per site by
+   Innovatrics.
+
+**Bring-up** (after `start.sh`):
+
+```bash
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+```
+
+| Service        | URL                    | Purpose                                    |
+| -------------- | ---------------------- | ------------------------------------------ |
+| Visualizer     | http://localhost:8004  | live tracks on the floor plan              |
+| Config API     | http://localhost:8002  | calibration models                         |
+| Tracker API    | http://localhost:8420  | engine statistics (`/api/v1/sessions`)     |
+| Proxy health   | http://localhost:18081 | feed-tap status (source/receiver counters) |
+| Ingest broker  | http://localhost:15673 | MQTT-5 broker mgmt (guest/guest)           |
+
+The track stream lands on the stack's shared RabbitMQ as protobuf
+(`fanout://mct_tracker.tracking_updates/` + `fanout://position.message/`); the Hub consumes it
+directly when `ZONE_MCT_ENABLED=true` (see `.env.hub`). Images are CI-pipeline builds mirrored
+digest-1:1 to Harbor, pinned in `.env.mct`; they move to semver tags with the MCT release train.

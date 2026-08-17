@@ -1,0 +1,183 @@
+# Multi-Camera Tracking (MCT) overlay — OPT-IN addition to the Smart Corridors & e-Gates stack.
+#
+# Tracks people across corridor cameras and publishes a track stream (TrackingUpdate /
+# PositionMessage protobuf) onto the stack's shared RabbitMQ, where the Corridor Hub can derive
+# MCT-sourced zone.* notifications (see ../.env.hub) and the visualizer renders live dots on the
+# floor plan.
+#
+# PREREQUISITES (see the MCT section of ../README.md):
+#   * the base stack is up (start.sh) — MCT reuses its `pgsql`, `rmq` and `sf-network`,
+#   * a per-camera detection feed from SmartFace Embedded Stream Processor cameras, delivered
+#     over MQTT as edge-stream/<clientId>/frame_data (typically via the sfe-sp-mqtt-proxy from
+#     the camera site's broker — the tap below runs in read-only client mode),
+#   * a calibration model for your cameras imported into the Config API (MCT_MODEL).
+#
+# Bring-up:
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+# Teardown (keeps the base stack untouched):
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down -v
+
+configs:
+  mct_broker_config:
+    content: |
+      mqtt.allow_anonymous = false
+
+  mct_broker_enabled_plugins:
+    content: |
+      [rabbitmq_management,rabbitmq_mqtt].
+
+services:
+  # MQTT-5 ingest broker for the MCT engine. The stack's main `rmq` (RabbitMQ 3.12) cannot parse
+  # MQTT 5 CONNECT packets, so detection ingest gets its own RabbitMQ 4 — everything AMQP
+  # (track stream, hub) stays on the main `rmq`.
+  mct-broker:
+    image: rabbitmq:4.0-management
+    container_name: mct-broker
+    restart: unless-stopped
+    ports:
+      - "1884:1883"
+      - "15673:15672"
+    configs:
+      - source: mct_broker_config
+        target: /etc/rabbitmq/external_rabbitmq.conf
+      - source: mct_broker_enabled_plugins
+        target: /etc/rabbitmq/external_enabled_plugins
+    environment:
+      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/external_rabbitmq.conf
+      RABBITMQ_ENABLED_PLUGINS_FILE: /etc/rabbitmq/external_enabled_plugins
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      start_period: 10s
+      start_interval: 2s
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # One-shot schema migration — creates the `configurationDb` database objects in the stack's
+  # existing Postgres (additive; nothing else in `pgsql` is touched).
+  mct-migrate:
+    image: ${MCT_REGISTRY}mct-config-api:${MCT_VERSION}
+    container_name: mct-migrate
+    restart: "no"
+    command: ["migrate"]
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=pgsql;Port=5432;Database=configurationDb;Username=postgres;Password=Test1234;Trust Server Certificate=true;"
+
+  # REST API holding calibration models (cameras, homographies, floor plan). Import your site's
+  # model here before expecting tracks — see ../README.md.
+  mct-config-api:
+    image: ${MCT_REGISTRY}mct-config-api:${MCT_VERSION}
+    container_name: mct-config-api
+    restart: unless-stopped
+    depends_on:
+      mct-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8002:80"
+    environment:
+      ASPNETCORE_URLS: "http://*:80"
+      ConnectionStrings__DefaultConnection: "Host=pgsql;Port=5432;Database=configurationDb;Username=postgres;Password=Test1234;Trust Server Certificate=true;"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:80/health"]
+      start_period: 10s
+      start_interval: 1s
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Read-only tap of the camera-feed broker → mct-broker. Client mode is one-way: the source
+  # broker and the cameras behind it are never written to. ALWAYS set a unique client id —
+  # two proxy instances with the default id tapping the same broker kick each other off
+  # (MQTT session takeover).
+  mct-proxy:
+    image: ${MCT_REGISTRY}sfe-sp-mqtt-proxy:${MCT_PROXY_VERSION}
+    container_name: mct-proxy
+    restart: unless-stopped
+    depends_on:
+      mct-broker:
+        condition: service_healthy
+    environment:
+      MODE: client
+      SOURCE_URI: ${MCT_SOURCE_URI}
+      SOURCE_USERNAME: ${MCT_SOURCE_USERNAME}
+      SOURCE_PASSWORD: ${MCT_SOURCE_PASSWORD}
+      SOURCE_NAME: sceg-mct-tap
+      SOURCE_CLIENT_ID: ${MCT_SOURCE_CLIENT_ID}
+      SOURCE_TOPICS: ${MCT_SOURCE_TOPICS}
+      RECEIVER_1_NAME: local-mct-broker
+      RECEIVER_1_URI: mqtt://mct-broker:1883
+      RECEIVER_1_USERNAME: guest
+      RECEIVER_1_PASSWORD: guest
+    ports:
+      - "18081:8080"
+
+  # The tracking engine: consumes frame_data detections, projects them through the calibration
+  # model, associates across cameras and publishes the track stream to the main `rmq`
+  # (fanout://mct_tracker.tracking_updates/).
+  mct-tracker:
+    image: ${MCT_REGISTRY}mct-calibration-tracking:${MCT_TRACKER_VERSION}
+    container_name: mct-tracker
+    restart: unless-stopped
+    depends_on:
+      mct-broker:
+        condition: service_healthy
+      mct-config-api:
+        condition: service_healthy
+    ports:
+      - "8420:8420"
+    # Writable calibration cache (the container runs non-root). If the volume comes up
+    # unwritable on your host, replace it with a bind mount you have chmod-ed accordingly.
+    volumes:
+      - mct-tracker-cache:/data
+    environment:
+      MCT__Model: ${MCT_MODEL}
+      MCT__ConfigurationApi__BaseUrl: http://mct-config-api:80
+      STREAM_PROCESSOR__ClientIds: ${MCT_CLIENT_IDS}
+      MQTT__Host: mct-broker
+      MQTT__Port: "1883"
+      MQTT__Username: guest
+      MQTT__Password: guest
+      RMQ__HostName: rmq
+      RMQ__Port: "5672"
+      RMQ__UserName: guest
+      RMQ__Password: guest
+      RMQ__PublicationAddress: fanout://mct_tracker.tracking_updates/
+
+  # Joins the track stream with SmartFace `frame.processed` notifications (tracklet UUIDs are
+  # camera-assigned, so both sides agree) and publishes PositionMessages — this is what puts
+  # names on the dots when SmartFace ingests the same camera feed as edge streams.
+  mct-identifier:
+    image: ${MCT_REGISTRY}mct-identifier:${MCT_VERSION}
+    container_name: mct-identifier
+    restart: unless-stopped
+    ports:
+      - "8003:80"
+    environment:
+      ASPNETCORE_URLS: "http://*:80"
+      RabbitMQ__SmartFace__HostName: rmq
+      RabbitMQ__RuntimeService__HostName: rmq
+      RabbitMQ__MessagePublish__HostName: rmq
+
+  # Live floor-plan view of the tracks — the quickest way to verify the pipeline end to end.
+  mct-visualizer:
+    image: ${MCT_REGISTRY}mct-tracking-visualizer:${MCT_VERSION}
+    container_name: mct-visualizer
+    restart: unless-stopped
+    depends_on:
+      mct-config-api:
+        condition: service_healthy
+    ports:
+      - "8004:80"
+    environment:
+      ASPNETCORE_URLS: "http://*:80"
+      RabbitMq__Hostname: rmq
+      ConfigurationApi__BaseUrl: http://mct-config-api/
+      ConfigurationApi__Model: ${MCT_MODEL}
+
+volumes:
+  mct-tracker-cache:
+
+networks:
+  default:
+    name: sf-network
+    external: true
