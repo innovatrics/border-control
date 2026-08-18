@@ -21,15 +21,19 @@ configs:
   mct_broker_config:
     content: |
       mqtt.allow_anonymous = false
+      # Same 6h ack timeout as the base stack's `rmq` (vpp/sf_dependencies/etc_rmq/rabbitmq.conf).
+      # With the 30-minute default the broker force-closes a consumer that stalls on a single
+      # message — a plausible cause of the silent tracker wedge the watchdog below recovers from.
+      consumer_timeout = 21600000
 
   mct_broker_enabled_plugins:
     content: |
       [rabbitmq_management,rabbitmq_mqtt].
 
 services:
-  # MQTT-5 ingest broker for the MCT engine. The stack's main `rmq` (RabbitMQ 3.12) cannot parse
-  # MQTT 5 CONNECT packets, so detection ingest gets its own RabbitMQ 4 — everything AMQP
-  # (track stream, hub) stays on the main `rmq`.
+  # Dedicated MQTT ingest broker for the MCT engine, so the high-rate per-frame detection feed
+  # never shares a broker with the corridor traffic. Everything AMQP (track stream, hub) stays
+  # on the main `rmq`.
   mct-broker:
     image: rabbitmq:4.0-management
     container_name: mct-broker
@@ -61,7 +65,7 @@ services:
     restart: "no"
     command: ["migrate"]
     environment:
-      ConnectionStrings__DefaultConnection: "Host=pgsql;Port=5432;Database=configurationDb;Username=postgres;Password=Test1234;Trust Server Certificate=true;"
+      ConnectionStrings__DefaultConnection: "Host=pgsql;Port=5432;Database=configurationDb;Username=postgres;Password=${MCT_DB_PASSWORD:-Test1234};Trust Server Certificate=true;"
 
   # REST API holding calibration models (cameras, homographies, floor plan). Import your site's
   # model here before expecting tracks — see ../README.md.
@@ -76,7 +80,7 @@ services:
       - "8002:80"
     environment:
       ASPNETCORE_URLS: "http://*:80"
-      ConnectionStrings__DefaultConnection: "Host=pgsql;Port=5432;Database=configurationDb;Username=postgres;Password=Test1234;Trust Server Certificate=true;"
+      ConnectionStrings__DefaultConnection: "Host=pgsql;Port=5432;Database=configurationDb;Username=postgres;Password=${MCT_DB_PASSWORD:-Test1234};Trust Server Certificate=true;"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:80/health"]
       start_period: 10s
@@ -125,10 +129,12 @@ services:
         condition: service_healthy
     ports:
       - "8420:8420"
-    # Writable calibration cache (the container runs non-root). If the volume comes up
-    # unwritable on your host, replace it with a bind mount you have chmod-ed accordingly.
-    volumes:
-      - mct-tracker-cache:/data
+    # Calibration cache. The engine re-fetches every camera's projection from the Config API on
+    # each startup, so this needs no persistence — and it must not be a named volume: the image
+    # has no /data, so Docker creates the mountpoint as root:root while the process runs as
+    # uid 100, and writing calibration-<clientId>.model then fails at startup.
+    tmpfs:
+      - /data:mode=1777
     environment:
       MCT__Model: ${MCT_MODEL}
       MCT__ConfigurationApi__BaseUrl: http://mct-config-api:80
@@ -206,9 +212,6 @@ services:
           fi
           prev_send=$$send; prev_recv=$$recv
         done
-
-volumes:
-  mct-tracker-cache:
 
 networks:
   default:

@@ -106,12 +106,25 @@ feeds the Hub's MCT-sourced zone notifications plus a live floor-plan visualizer
    demo cameras of the base stack do **not** produce this feed.
 2. **A calibration model** of your cameras (homographies + floor plan), imported into the MCT
    Config API (`:8002`) under the name set as `MCT_MODEL`. Calibration is produced per site by
-   Innovatrics.
+   Innovatrics. Import it with `POST /Models` plus a
+   `PUT /Models/{model}/Cameras/{clientId}/CalibrationMap/projectionV2` per camera — full schema
+   at http://localhost:8002/swagger. Until the model exists, `mct-tracker` exits at startup
+   (`ConfigApi request failed: .../Models/<model>/Cameras`) and Docker keeps restarting it; it
+   picks up the model on the next restart, so import it and no further action is needed.
+3. **Docker Compose ≥ 2.23** — the overlay declares its broker config inline (`configs:` with
+   `content:`), which older Compose versions cannot parse.
 
 **Bring-up** (after `start.sh`):
 
 ```bash
 docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+```
+
+MCT is a separate Compose project (`sceg-mct`), so `start.sh` never starts it and `stop.sh` /
+`factory-reset.sh` never stop it. Tear it down explicitly:
+
+```bash
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down -v
 ```
 
 | Service        | URL                    | Purpose                                    |
@@ -120,9 +133,16 @@ docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
 | Config API     | http://localhost:8002  | calibration models                         |
 | Tracker API    | http://localhost:8420  | engine statistics (`/api/v1/sessions`)     |
 | Proxy health   | http://localhost:18081 | feed-tap status (source/receiver counters) |
-| Ingest broker  | http://localhost:15673 | MQTT-5 broker mgmt (guest/guest)           |
+| Ingest broker  | http://localhost:15673 | detection-feed broker mgmt (guest/guest)   |
+| Identifier     | http://localhost:8003  | joins tracks with SmartFace identities      |
 
 The track stream lands on the stack's shared RabbitMQ as protobuf
 (`fanout://mct_tracker.tracking_updates/` + `fanout://position.message/`); the Hub consumes it
-directly when `ZONE_MCT_ENABLED=true` (see `.env.hub`). Images are CI-pipeline builds mirrored
-digest-1:1 to Harbor, pinned in `.env.mct`; they move to semver tags with the MCT release train.
+directly when `ZONE_MCT_ENABLED=true` (see `.env.hub`). Images are CI-pipeline preview builds
+re-pushed to Harbor and pinned in `.env.mct`; they move to semver tags with the MCT release train.
+
+The overlay publishes its ports on all interfaces and its management UIs carry the same demo
+credentials as the base stack (`guest/guest`), so treat it as a lab/demo deployment — front it
+with a firewall before it sees an untrusted network. It also ships `mct-watchdog`, which restarts
+a wedged tracker and therefore mounts the Docker socket; that grants the container
+root-equivalent control of the host, so remove the service if your environment does not allow it.
