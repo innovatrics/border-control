@@ -998,8 +998,16 @@ services:
     ports:
       - 8000:8000
     env_file: .env.sfstation
+    # White-label: replace the SmartFace logo/favicon/window-title with the Smart Corridors
+    # brand. Per-file mounts over the image's /build/branding (the server inlines them into /config.js
+    # at startup — logos MUST be SVG, favicon .ico; naming-product.json is io-ts validated so it keeps
+    # ALL keys). Assets live in vpp/branding/sf-station/.
     volumes:
       - ./iengine.lic:/etc/innovatrics/iengine.lic
+      - ./branding/sf-station/logo-product.svg:/build/branding/logo-product.svg:ro
+      - ./branding/sf-station/logo-product-without-text.svg:/build/branding/logo-product-without-text.svg:ro
+      - ./branding/sf-station/favicon-product.ico:/build/branding/favicon-product.ico:ro
+      - ./branding/sf-station/naming-product.json:/build/branding/naming-product.json:ro
 
 networks:
   default:

@@ -9,11 +9,26 @@ services:
       - ./.env.hub
     environment:
       STORAGE_S3_ENDPOINT: http://minio:9000
+    # Fail-closed SmartCorridor license gate: the hub refuses to start unless the mounted
+    # iengine.lic carries a valid, unexpired smart_corridor.hub block. One universal iengine.lic is
+    # shared by every service — VPP/CIGS read its iengine block, hub/frontend the smart_corridor block.
+    volumes:
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   cigs:
     image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
     container_name: sceg-cigs
     restart: unless-stopped
+    # restart: only fires on process exit — a hung JVM (e.g. the 2026-07-14 crash-handler zombie,
+    # where PID 1 stayed alive but served nothing) needs healthcheck + autoheal to recover.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    labels:
+      autoheal: "true"
     ports:
       - "8096:80"
     environment:
@@ -25,26 +40,60 @@ services:
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_REQUIRE_FACE_TEMPLATE: "true"
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_FACE_SIZE_MIN: 15
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_FACE_QUALITY_MIN: 100
-      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_TEMPLATE_QUALITY_MIN: 50
+      CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_TEMPLATE_QUALITY_MIN: 60
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_YAW_ANGLE_MIN: -50
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_YAW_ANGLE_MAX: 50
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_PITCH_ANGLE_MIN: -50
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_PITCH_ANGLE_MAX: 50
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_ROLL_ANGLE_MIN: -50
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_ROLL_ANGLE_MAX: 50
+      CORRIDOR_IDENTITY_GROUPING_GROUPING_VERIFICATION_SCORE_THRESHOLD: 35
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
+  # NOTE: hub has no healthcheck — its buildpack image ships no shell/curl, so there is nothing
+  # to exec the probe with. Revisit if the hub image ever gains a probe binary.
   frontend:
     image: ${REGISTRY}corridor-operational-display:${FRONTEND_VERSION}
     container_name: sceg-frontend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      autoheal: "true"
     ports:
       - "${FRONTEND_PORT:-8095}:80"
     environment:
       HUB_URL: http://sceg-hub:8090
       SMARTFACE_GQL_URL: http://SFGraphQLApi:80
       SMARTFACE_API_URL: http://SFApi:80
+      # SmartFace Station powers the live camera preview (operational-display 0.5.0). The
+      # frontend's nginx proxies the SPA's /smartface-video/<cameraId> WS to Station's /-/video bridge,
+      # so this is an in-network container URL like the two above — SFStation runs in the VPP stack
+      # (vpp/docker-compose.yml) on sf-network, published on :8000. Unset ⇒ Cameras panel shows
+      # "unavailable".
+      SMARTFACE_STATION_URL: http://SFStation:8000
+    # Fail-closed operational_display license gate: the frontend serves a "not licensed"
+    # page unless the mounted iengine.lic carries a valid smart_corridor.operational_display block
+    # (same universal iengine.lic as the hub and CIGS).
+    volumes:
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+
+  # Restarts any container labeled autoheal=true once Docker marks it unhealthy. Plain Docker
+  # never restarts unhealthy containers on its own (restart policies react to exits only).
+  # Needs the docker socket, so it can restart peers — keep this service pinned and minimal.
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: sceg-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 networks:
   default:

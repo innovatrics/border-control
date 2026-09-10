@@ -1,0 +1,263 @@
+# Multi-Camera Tracking (MCT) overlay — OPT-IN addition to the Smart Corridors & e-Gates stack.
+#
+# Tracks people across corridor cameras and publishes a track stream (TrackingUpdate /
+# PositionMessage protobuf) onto the stack's shared RabbitMQ, where the Corridor Hub can derive
+# MCT-sourced zone.* notifications (see ../.env.hub) and the visualizer renders live dots on the
+# floor plan.
+#
+# PREREQUISITES (see the MCT section of ../README.md):
+#   * the base stack is up (start.sh) — MCT joins its `sf-network` and reads its `rmq`,
+#   * a per-camera detection feed from SmartFace Embedded Stream Processor cameras, delivered into
+#     that `rmq` over MQTT as edge-stream/<clientId>/frame_data,
+#   * a calibration model for your cameras, loaded into the Config API (MCT_MODEL).
+#
+# Bring-up — the two profiles are one-time setup, the third line is the stack itself:
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile migrate up -d
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile seed up -d
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+# Teardown (keeps the base stack untouched):
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down -v
+#
+# WHAT CHANGED FROM THE PREVIOUS VERSION OF THIS OVERLAY
+# It used to ship a second broker (RabbitMQ 4), a proxy to shuttle frames from the stack's broker
+# into it, and a watchdog that mounted the Docker socket to restart a tracker that wedged. All
+# three are gone. The tracker build of the time required MQTT 5, which RabbitMQ 3.12 cannot parse
+# (MQTT 5 arrived in 3.13), hence the extra broker; the released tracker speaks MQTT 3.1.1 and
+# reads the stack's `rmq` directly. The wedge appears to have been a consequence of that extra
+# broker rather than of the tracker: it ran RabbitMQ's default 30-minute consumer_timeout, which
+# force-closes a consumer that stalls on one message, while the stack's own `rmq` is configured
+# for 6 hours (vpp/sf_dependencies/etc_rmq/rabbitmq.conf). Reading from `rmq` inherits that, so
+# there is nothing left for a watchdog to recover from — and no reason to hand a container the
+# Docker socket.
+
+services:
+  # MCT keeps its own database on a named volume, rather than adding tables to the base stack's
+  # `pgsql`. The calibration model is hand-made per site, so it is worth isolating: it survives
+  # `compose down` here and is unaffected by anything the base stack does to its own database.
+  postgres:
+    image: postgres
+    container_name: mct-postgres
+    restart: unless-stopped
+    volumes:
+      - pgsqldata:/var/lib/postgresql
+    expose:
+      - 25132
+    environment:
+      - POSTGRES_DB=configurationDb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${MCT_DB_PASSWORD:?error}
+      - PGPORT=25132
+      - POSTGRES_PORT=25132
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB'"]
+      start_period: 5s
+      start_interval: 1s
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # `--profile migrate` — run against a fresh database, and again after raising MCT_TAG.
+  dbMigrator:
+    profiles: [migrate]
+    image: ${MCT_REGISTRY:?error}mct-config-api:${MCT_TAG:?error}
+    container_name: mct-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=25132;Database=configurationDb;Username=postgres;Password=${MCT_DB_PASSWORD:?error}"
+    command: ["migrate"]
+
+  # REST API holding calibration models (cameras, homographies, floor plan). Swagger on
+  # http://localhost:8002/swagger.
+  configurationApi:
+    image: ${MCT_REGISTRY:?error}mct-config-api:${MCT_TAG:?error}
+    container_name: mct-config-api
+    restart: unless-stopped
+    depends_on:
+      dbMigrator:
+        condition: service_completed_successfully
+        required: false
+    ports:
+      - "8002:80"
+    environment:
+      ASPNETCORE_URLS: "http://*:80"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=25132;Database=configurationDb;Username=postgres;Password=${MCT_DB_PASSWORD:?error}"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:80/health"]
+      start_period: 5s
+      start_interval: 1s
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # `--profile seed` — loads your site's calibration from ./mct/models_data into the Config API.
+  # Put the directory your calibration produced there; it must contain a folder named after
+  # MCT_MODEL. Without a model the tracker starts but produces no tracks, so this — or an
+  # equivalent manual import via :8002/swagger — is required once per site.
+  # Re-running it OVERWRITES what is already in the database, so do not wire it into a routine
+  # restart if you have since recalibrated in place.
+  configApiSeeder:
+    profiles: [seed]
+    image: ${MCT_REGISTRY:?error}mct-debugconfigurationinitializer:${MCT_TAG:?error}
+    container_name: mct-config-seed
+    depends_on:
+      configurationApi:
+        condition: service_healthy
+    volumes:
+      - ./models_data:/app/data/states
+    command: ["http://configurationApi/", "--use-calibration-v2"]
+
+  # The tracking engine: consumes frame_data detections for the cameras in MCT_CLIENT_IDS,
+  # projects them through the calibration model, associates across cameras and publishes the track
+  # stream to the stack's `rmq` (fanout://mct_tracker.tracking_updates/).
+  trackingService:
+    image: ${MCT_REGISTRY:?error}mct-tracker-service:${MCT_TAG:?error}
+    container_name: mct-tracker
+    restart: unless-stopped
+    depends_on:
+      configApiSeeder:
+        condition: service_completed_successfully
+        required: false
+    ports:
+      - "8420:8420"
+    # No tracking_pipeline.cfg mount: the image ships its own at /app/tracking_pipeline.cfg, and
+    # overriding it with a copy pinned here would keep the old tuning across an MCT_TAG upgrade.
+    # Mount one only to deliberately override the defaults for a site.
+    # Calibration cache. The engine re-fetches every camera's projection from the Config API on
+    # each startup, so this needs no persistence — and it must not be a named volume: the image
+    # has no /data, so Docker creates the mountpoint as root:root while the process runs as
+    # uid 100, and writing calibration-<clientId>.model then fails at startup.
+    tmpfs:
+      - /data:mode=1777
+    environment:
+      # A PYTHON logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL. Anything else — a .NET
+      # style "Information", for instance — aborts the container at startup. Per-frame ingest
+      # lines are DEBUG only, so at INFO a healthy tracker logs nothing per frame; judge it by the
+      # visualizer or by the publish rate on mct_tracker.tracking_updates instead.
+      LOGGING__Level: ${MCT_LOG_LEVEL:-INFO}
+      MCT__Model: ${MCT_MODEL:?error}
+      MCT__ConfigurationApi__BaseUrl: http://configurationApi:80
+      STREAM_PROCESSOR__ClientIds: ${MCT_CLIENT_IDS:?error}
+      MQTT__Host: ${MCT_MQTT_HOST:?error}
+      MQTT__Port: ${MCT_MQTT_PORT:?error}
+      MQTT__Username: ${MCT_MQTT_USERNAME:?error}
+      MQTT__Password: ${MCT_MQTT_PASSWORD:?error}
+      RMQ__HostName: ${MCT_RMQ_HOST:?error}
+      RMQ__Port: ${MCT_RMQ_PORT:?error}
+      RMQ__UserName: ${MCT_RMQ_USERNAME:?error}
+      RMQ__Password: ${MCT_RMQ_PASSWORD:?error}
+      RMQ__PublicationAddress: fanout://mct_tracker.tracking_updates/
+
+  # Joins the track stream with SmartFace `frame.processed` notifications (tracklet UUIDs are
+  # camera-assigned, so both sides agree) and publishes PositionMessages — this is what puts
+  # names on the dots when SmartFace ingests the same camera feed as edge streams.
+  identityIdentifier:
+    image: ${MCT_REGISTRY:?error}mct-identifier:${MCT_TAG:?error}
+    container_name: mct-identifier
+    restart: unless-stopped
+    ports:
+      - "8003:80"
+    environment:
+      ASPNETCORE_URLS: "http://*:80"
+      RabbitMQ__SmartFace__HostName: ${MCT_RMQ_HOST:?error}
+      RabbitMQ__SmartFace__Port: ${MCT_RMQ_PORT:?error}
+      RabbitMQ__SmartFace__UserName: ${MCT_RMQ_USERNAME:?error}
+      RabbitMQ__SmartFace__Password: ${MCT_RMQ_PASSWORD:?error}
+      RabbitMQ__RuntimeService__HostName: ${MCT_RMQ_HOST:?error}
+      RabbitMQ__RuntimeService__Port: ${MCT_RMQ_PORT:?error}
+      RabbitMQ__RuntimeService__UserName: ${MCT_RMQ_USERNAME:?error}
+      RabbitMQ__RuntimeService__Password: ${MCT_RMQ_PASSWORD:?error}
+      RabbitMQ__RuntimeService__SubscriptionAddress: fanout://mct_tracker.tracking_updates/
+      RabbitMQ__MessagePublish__HostName: ${MCT_RMQ_HOST:?error}
+      RabbitMQ__MessagePublish__Port: ${MCT_RMQ_PORT:?error}
+      RabbitMQ__MessagePublish__UserName: ${MCT_RMQ_USERNAME:?error}
+      RabbitMQ__MessagePublish__Password: ${MCT_RMQ_PASSWORD:?error}
+
+  # Live floor-plan view of the tracks on http://localhost:8004 — the quickest way to verify the
+  # pipeline end to end. Dots moving means tracking works.
+  trackingVisualizer:
+    image: ${MCT_REGISTRY:?error}mct-tracking-visualizer:${MCT_TAG:?error}
+    container_name: mct-visualizer
+    restart: unless-stopped
+    depends_on:
+      configurationApi:
+        condition: service_healthy
+      configApiSeeder:
+        condition: service_completed_successfully
+        required: false
+    ports:
+      - "8004:80"
+    environment:
+      ASPNETCORE_URLS: "http://*:80"
+      ConfigurationApi__BaseUrl: http://configurationApi/
+      ConfigurationApi__Model: ${MCT_MODEL:?error}
+      RabbitMq__HostName: ${MCT_RMQ_HOST:?error}
+      RabbitMq__Port: ${MCT_RMQ_PORT:?error}
+      RabbitMq__UserName: ${MCT_RMQ_USERNAME:?error}
+      RabbitMq__Password: ${MCT_RMQ_PASSWORD:?error}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:80/health"]
+      start_period: 5s
+      start_interval: 1s
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Records the four pipeline feeds to a local SQLite log and serves a snapshot API/UI on
+  # http://localhost:8005. Worth having when a site goes quiet and you need to see what the
+  # tracker was actually receiving.
+  recordingService:
+    image: ${MCT_REGISTRY:?error}mct-recording-service:${MCT_TAG:?error}
+    container_name: mct-recording
+    restart: unless-stopped
+    depends_on:
+      configurationApi:
+        condition: service_healthy
+    ports:
+      - "8005:8080"
+    volumes:
+      - recording-log:/var/lib/mct-recording-service
+      - snapshot-output:/var/lib/mct-snapshot-service/snapshots
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://*:8080"
+      RecordingSink__ChannelCapacity: "50000"
+      RecordingSink__MaxBatchSize: "1000"
+      RecordingSink__MaxLingerMs: "2000"
+      FrameDataRecording__Broker__Hostname: ${MCT_MQTT_HOST:?error}
+      FrameDataRecording__Broker__Port: ${MCT_MQTT_PORT:?error}
+      FrameDataRecording__Broker__Username: ${MCT_MQTT_USERNAME:?error}
+      FrameDataRecording__Broker__Password: ${MCT_MQTT_PASSWORD:?error}
+      FrameDataRecording__Broker__UseSsl: "false"
+      FrameProcessedRecording__Broker__Hostname: ${MCT_RMQ_HOST:?error}
+      FrameProcessedRecording__Broker__Port: ${MCT_RMQ_PORT:?error}
+      FrameProcessedRecording__Broker__Username: ${MCT_RMQ_USERNAME:?error}
+      FrameProcessedRecording__Broker__Password: ${MCT_RMQ_PASSWORD:?error}
+      FrameProcessedRecording__Broker__VirtualHost: "/"
+      FrameProcessedRecording__Broker__UseSsl: "false"
+      TrackingUpdateRecording__Broker__Hostname: ${MCT_RMQ_HOST:?error}
+      TrackingUpdateRecording__Broker__Port: ${MCT_RMQ_PORT:?error}
+      TrackingUpdateRecording__Broker__Username: ${MCT_RMQ_USERNAME:?error}
+      TrackingUpdateRecording__Broker__Password: ${MCT_RMQ_PASSWORD:?error}
+      TrackingUpdateRecording__Broker__VirtualHost: "/"
+      TrackingUpdateRecording__Broker__UseSsl: "false"
+      PositionMessageRecording__Broker__Hostname: ${MCT_RMQ_HOST:?error}
+      PositionMessageRecording__Broker__Port: ${MCT_RMQ_PORT:?error}
+      PositionMessageRecording__Broker__Username: ${MCT_RMQ_USERNAME:?error}
+      PositionMessageRecording__Broker__Password: ${MCT_RMQ_PASSWORD:?error}
+      PositionMessageRecording__Broker__VirtualHost: "/"
+      PositionMessageRecording__Broker__UseSsl: "false"
+      RecordingLog__DatabasePath: /var/lib/mct-recording-service/recording-log.db
+      Snapshot__OutputDirectory: /var/lib/mct-snapshot-service/snapshots
+      Snapshot__ConfigApi__BaseUrl: http://configurationApi/
+
+volumes:
+  pgsqldata:
+  recording-log:
+  snapshot-output:
+
+networks:
+  default:
+    name: sf-network
+    external: true
