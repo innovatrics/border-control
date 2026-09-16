@@ -2,6 +2,9 @@
 smart-corridors-and-e-gates/secrets/iengine.lic
 smart-corridors-and-e-gates/vpp/iengine.lic
 
+# Local-only tooling (internal registry migration scripts etc.) — never commit
+.local/
+
 # macOS
 .DS_Store
 __MACOSX/
