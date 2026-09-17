@@ -43,7 +43,7 @@ services:
     extends:
       service: common
       file: docker-compose-common.yml
-    image: rabbitmq:4-management
+    image: rabbitmq:4.3.6-management
     configs:
       - source: rabbitmq_config
         target: /etc/rabbitmq/external/rabbitmq.conf
@@ -89,14 +89,12 @@ services:
       # Prevents SeaweedFS from trying to replicate volumes; single-node setup has no replica targets
       WEED_MASTER_VOLUME_GROWTH_COPY_1: "1"
     volumes:
-      - seaweedfs_data:/data
       - seaweedfsdata:/data
     networks:
       default:
         aliases:
           - seaweedfs
 volumes:
-  seaweedfs_data:
   pgsqldata:
   seaweedfsdata:
 networks:
@@ -109,6 +107,8 @@ configs:
       consumer_timeout = 21600000
       mqtt.allow_anonymous = false
       deprecated_features.permit.transient_nonexcl_queues = true
+      # Hub 0.4 / Spring AMQP anonymous queues still set x-queue-master-locator.
+      deprecated_features.permit.queue_master_locator = true
   rabbitmq_enabled_plugins:
     content: |
       [rabbitmq_management,rabbitmq_mqtt,rabbitmq_prometheus,rabbitmq_stream,rabbitmq_stream_management].

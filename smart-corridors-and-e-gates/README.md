@@ -21,7 +21,11 @@ bash start.sh
 
 ## License
 
-The platform requires an `iengine.lic` file tied to the hardware of the machine it runs on.
+The stack requires a single `iengine.lic` file tied to the hardware of the machine it runs on. The
+same file licenses every service: the SmartFace/VPP platform and CIGS use its iengine block, while the
+Hub and the operational-display frontend additionally require a `smart_corridor` block — without it
+those two services are fail-closed and refuse to serve. Request a license with the `smart_corridor`
+block enabled from the Customer Portal.
 
 To get your hardware ID, run:
 
@@ -37,7 +41,8 @@ The VPP containers run as a non-root user (uid 10001), so the license file must 
 
 ## Registry login
 
-All images — the Smart Corridors services and the VPP — are served from a single registry. Before the first run:
+Innovatrics application images (corridor services, VPP and MCT) are served from Harbor.
+Infrastructure images and the autoheal helper are pulled from Docker Hub. Before the first run:
 
 ```bash
 docker login registry.dot.innovatrics.com -u USER_NAME -p PASSWORD
@@ -49,7 +54,7 @@ The registry USER_NAME and PASSWORD is provided separately by Innovatrics.
 
 ```bash
 bash start.sh          # start VPP (dependencies, DB migration, services) and the corridor services
-bash stop.sh           # stop everything, keep data
+bash stop.sh           # stop the base stack, keep data (MCT is managed separately)
 bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 ```
 
@@ -105,6 +110,7 @@ Face crop thumbnails stream through the Hub's in-service image proxy (`/corridor
 | `.env`                            | `REGISTRY=registry.dot.innovatrics.com/border-control/vpp/` (release: internal registry)              | Customers pull everything from Harbor                                      |
 | `.env`                            | `Notifications__IncludeTemplates=true` (release: `false`)                                              | The Hub and CIGS consume face templates from the VPP GraphQL notifications |
 | `dependencies/docker-compose.yml` | `milvus`, `milvus-etcd` and `milvus-create-user` services (and their volumes/configs) removed          | The vector database is not used (`VectorDB__Provider=none`)                |
+| `dependencies/docker-compose.yml` | One SeaweedFS data mount; pin RabbitMQ 4.3.6 and permit legacy `queue_master_locator` arguments | Preserve the existing data volume and support Hub 0.4 on RabbitMQ 4 |
 | `run.sh`                          | `ensure_milvus_user_provisioned` wait removed                                                          | Follows the Milvus removal                                                 |
 | `sync-embeddings-to-vector-db.sh` | deleted                                                                                                | Needs Milvus                                                               |
 
@@ -118,3 +124,98 @@ The VPP services are reachable from the corridor services by their Compose servi
 2. Unpack the new `video_processing_deployment.zip` over `vpp/` (delete the old contents first) and re-apply the local edits listed above.
 3. Read the VPP release notes. If the face template model changed, run `vpp/migrate-faces.sh` and `vpp/finalize-non-migrated-faces.sh` as described in `vpp/README.md` before starting the services.
 4. Run `bash start.sh` — the VPP `run.sh` migrates the database to the new version on the way up.
+
+### Zone notifications (Hub ≥ 0.4.0)
+
+The Hub can derive `zone.*` notifications (person entered / left / moved, occupancy, counts,
+avoiding-identification) with a **per-topic source switch** — each topic is computed from VPP
+tracklets, CIGS identities, or the MCT track stream. `.env.hub` ships a commented example block;
+`ZONE_PERSON_MOVED` (floor-plan coordinates) is MCT-only and needs the MCT overlay below. All
+topics arrive on the same `corridorEvents` GraphQL subscription as the identification events.
+
+## Multi-Camera Tracking (MCT)
+
+Optional overlay (`mct/docker-compose.yml`) that tracks people **across** corridor cameras and
+feeds the Hub's MCT-sourced zone notifications plus a live floor-plan visualizer. The released MCT
+images target `linux/amd64`; ARM hosts need Docker x86-64 emulation. `start.sh` does not start
+MCT, and the base stack needs no calibration data.
+
+**What it needs beyond the base stack:**
+
+1. **A per-camera detection feed** from SmartFace Embedded Stream Processor cameras, delivered into
+   the base stack's `rmq` over MQTT as `edge-stream/<clientId>/frame_data` — typically by an
+   `sfe-sp-mqtt-proxy` at the camera site publishing into it. The tracker subscribes there directly,
+   over plain MQTT 3.1.1. Plain RTSP demo cameras of the base stack do **not** produce this feed.
+2. **A calibration model** of your cameras (homographies + floor plan), under the name set as
+   `MCT_MODEL`. Calibration is produced per site by Innovatrics. Either drop the model directory it
+   produced into `mct/models_data/` and run the `seed` profile below, or import it by hand with
+   `POST /Models` plus a `PUT /Models/{model}/Cameras/{clientId}/CalibrationMap/projectionV2` per
+   camera — full schema at http://localhost:8002/openapi/v1.json (interactive UI:
+   http://localhost:8002/swagger/index.html?url=/openapi/v1.json). The tracker and visualizer fail
+   to start until the model exists. For manual import, first start `configurationApi` after migration.
+
+**Bring-up** (after `start.sh`). The first two commands are one-time setup and wait for completion:
+
+```bash
+# database schema — also after raising MCT_TAG
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile migrate run --rm dbMigrator
+
+# load the calibration model from mct/models_data — skip if you import via Swagger instead
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile seed run --rm configApiSeeder
+
+# the overlay itself
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+```
+
+Re-running the `seed` profile **overwrites** the model in the database, so leave it out of routine
+restarts if you have recalibrated in place since.
+
+MCT is a separate Compose project (`sceg-mct`), so `start.sh` never starts it and `stop.sh` /
+`factory-reset.sh` never stop it. Stop it explicitly (retaining calibration and recordings):
+
+```bash
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down
+```
+
+Add `-v` only for a factory reset: it deletes the calibration database, recordings and snapshots.
+
+| Service       | URL                   | Purpose                                 |
+| ------------- | --------------------- | --------------------------------------- |
+| Visualizer    | http://localhost:8004 | live tracks on the floor plan           |
+| Config API    | http://localhost:8002 | calibration models                      |
+| Tracker API   | http://localhost:8420 | engine statistics (`/api/v1/sessions`)  |
+| Identifier    | http://localhost:8003 | joins tracks with SmartFace identities  |
+| Recording     | http://localhost:8005 | pipeline recording log + snapshot export |
+
+The track stream lands on the stack's shared RabbitMQ as protobuf
+(`fanout://mct_tracker.tracking_updates/` + `fanout://position.message/`); the Hub consumes it
+directly when `ZONE_MCT_ENABLED=true` (see `.env.hub`). Images are the released MCT suite mirrored
+to Harbor, pinned by a single `MCT_TAG` in `.env.mct`.
+
+**Is it tracking?** The visualizer is the quickest answer — dots moving on the floor plan. Per-frame
+ingest lines in `docker logs mct-tracker` are DEBUG only, so at the default `INFO` level a healthy
+tracker logs nothing per frame; set `MCT_LOG_LEVEL=DEBUG` if you need to see them. `:8005` records
+the feeds and can export a snapshot when you need to show what the tracker was receiving.
+
+The overlay publishes its ports on all interfaces and reuses the base stack's demo credentials
+(`guest/guest`), so treat it as a lab/demo deployment — front it with a firewall before it sees an
+untrusted network.
+
+> **Earlier versions of this overlay** shipped a second RabbitMQ broker, a proxy that copied frames
+> into it, and a watchdog that mounted the Docker socket to restart a tracker that occasionally
+> wedged. None of the three is here any more. The tracker build of the time required MQTT 5, which
+> the former RabbitMQ 3.12 base broker could not parse. The current base stack uses RabbitMQ 4;
+> the released tracker speaks MQTT 3.1.1 and reads that shared `rmq` directly on `vpp-network`.
+> The wedge itself looks to have been a side effect of that extra broker — it ran RabbitMQ's default 30-minute `consumer_timeout`, whereas the stack's
+> own `rmq` is configured for 6 hours. Six containers instead of eight, and nothing holding the
+> Docker socket. If you are upgrading, back up the calibration and recordings, then remove
+> the old containers first:
+> `docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down --remove-orphans`.
+
+## Validation
+
+Run `python3 -m unittest discover -s tests -v` from the repository root to validate Compose
+wiring, license mounts, MCT startup dependencies and shell syntax. These checks need Docker
+Compose but do not need registry access, a license or running containers. GitHub Actions runs
+them on each pull request. Runtime validation additionally requires the licensed images and
+a site calibration plus an SFE detection feed for MCT.

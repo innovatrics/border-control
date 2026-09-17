@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-# The license must exist and be readable by the non-root user (uid 10001) the VPP containers run as.
+# The license must exist and be readable by every service user.
 if [ ! -f ./secrets/iengine.lic ]; then
   echo "ERROR: ./secrets/iengine.lic not found. Obtain a license (see README.md) and place it there." >&2
   exit 1
@@ -22,12 +22,16 @@ docker run --rm --network vpp-network "$(getvalue REGISTRY)admin:$(getvalue VERS
     --endpoint "$(getvalue S3Bucket__Endpoint)" --access-key "$(getvalue S3Bucket__AccessKey)" \
     --secret-key "$(getvalue S3Bucket__SecretKey)" --bucket-name corridor-hub
 
+# vpp/run.sh waits for the database migration, then starts the VPP services asynchronously.
+# Give the APIs a head start before Hub and CIGS connect.
 sleep 10
 
 # SF Station hands the browser presigned S3 URLs; they must point at this host, not at "seaweedfs".
-export SFS_PUBLIC_HOST="$(hostname)"
+export SFS_PUBLIC_HOST="${SFS_PUBLIC_HOST:-$(hostname)}"
 
-docker compose -f ./docker-compose.yml --env-file ./.env up -d
+# VPP run.sh recreates its API containers. Recreate the corridor services too so the frontend's
+# nginx resolves their current addresses, even when its own image and configuration are unchanged.
+docker compose -f ./docker-compose.yml --env-file ./.env up -d --force-recreate
 
 echo ""
 echo "Corridor dashboard : http://localhost:8095"

@@ -8,3 +8,6 @@ smart-corridors-and-e-gates/vpp/iengine.lic
 # macOS
 .DS_Store
 __MACOSX/
+
+# Python validation cache
+__pycache__/
