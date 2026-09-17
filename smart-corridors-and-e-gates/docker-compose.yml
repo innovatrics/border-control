@@ -57,7 +57,7 @@ services:
     image: ${REGISTRY}corridor-operational-display:${FRONTEND_VERSION}
     container_name: sceg-frontend
     restart: unless-stopped
-    # This release's nginx resolves the Hub at startup. Refresh it when Compose replaces Hub.
+    # This release's nginx resolves the Hub at startup. Start Hub first and follow Compose restarts.
     depends_on:
       hub:
         condition: service_started
