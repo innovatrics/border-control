@@ -29,7 +29,9 @@ sleep 10
 # SF Station hands the browser presigned S3 URLs; they must point at this host, not at "seaweedfs".
 export SFS_PUBLIC_HOST="${SFS_PUBLIC_HOST:-$(hostname)}"
 
-docker compose -f ./docker-compose.yml --env-file ./.env up -d
+# VPP run.sh recreates its API containers. Recreate the corridor services too so the frontend's
+# nginx resolves their current addresses, even when its own image and configuration are unchanged.
+docker compose -f ./docker-compose.yml --env-file ./.env up -d --force-recreate
 
 echo ""
 echo "Corridor dashboard : http://localhost:8095"

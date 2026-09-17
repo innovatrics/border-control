@@ -1,6 +1,6 @@
 # secrets/ — licensed material (do NOT commit / publish)
 
-Everything in this folder is **Innovatrics-licensed** and stays internal. The `.gitignore` at the stack root excludes this whole directory.
+Everything in this folder is **Innovatrics-licensed** and stays internal. The `.gitignore` at the stack root excludes `secrets/*.lic`; this README stays tracked.
 
 A **single** `iengine.lic` is mounted into every service. It must carry:
 - the **iengine/IFace** block — used by the SmartFace/VPP platform and CIGS (hardware-bound);

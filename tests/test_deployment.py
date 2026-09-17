@@ -66,6 +66,24 @@ class DeploymentTest(unittest.TestCase):
         for mount in branding:
             self.assertTrue(Path(mount["source"]).is_file(), mount["source"])
 
+    def test_mct_is_opt_in(self):
+        for project in (self.corridor, self.vpp, self.dependencies):
+            for service in project["services"].values():
+                self.assertNotIn("/mct-", service["image"])
+        environment = self.corridor["services"]["hub"]["environment"]
+        self.assertNotEqual(str(environment.get("ZONE_MCT_ENABLED", "false")).lower(), "true")
+
+    def test_vpp_api_ports_match_clients(self):
+        services = self.corridor["services"]
+        graphql_port = str(self.vpp["services"]["graphql-api"]["environment"]["Hosting__Port"])
+        api_port = int(self.vpp["services"]["api"]["environment"]["Hosting__Port"])
+        self.assertEqual(str(services["hub"]["environment"]["VPP_GRAPHQL_PORT"]), graphql_port)
+        self.assertEqual(str(services["cigs"]["environment"]["CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_PORT"]), graphql_port)
+        for name, key in (("frontend", "SMARTFACE_GQL_URL"), ("sf-station", "GRAPHQL_ROOT")):
+            self.assertEqual(urlparse(services[name]["environment"][key]).port, int(graphql_port))
+        for name, key in (("frontend", "SMARTFACE_API_URL"), ("sf-station", "CORE_API_ROOT")):
+            self.assertEqual(urlparse(services[name]["environment"][key]).port, api_port)
+
     def test_mount_targets_are_unique(self):
         for project in self.projects:
             for name, service in project["services"].items():
@@ -97,6 +115,11 @@ class DeploymentTest(unittest.TestCase):
         for name in ("cigs", "frontend"):
             self.assertEqual(services[name]["labels"][label], "true")
             self.assertIn("healthcheck", services[name])
+
+    def test_frontend_refreshes_after_hub_recreation(self):
+        dependency = self.corridor["services"]["frontend"]["depends_on"]["hub"]
+        self.assertEqual(dependency["condition"], "service_started")
+        self.assertTrue(dependency["restart"])
 
     def test_shell_syntax(self):
         for path in STACK.rglob("*.sh"):
