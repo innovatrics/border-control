@@ -6,27 +6,28 @@
 # floor plan.
 #
 # PREREQUISITES (see the MCT section of ../README.md):
-#   * the base stack is up (start.sh) — MCT joins its `sf-network` and reads its `rmq`,
+#   * the base stack is up (start.sh) — MCT joins its `vpp-network` and reads its `rmq`,
 #   * a per-camera detection feed from SmartFace Embedded Stream Processor cameras, delivered into
 #     that `rmq` over MQTT as edge-stream/<clientId>/frame_data,
 #   * a calibration model for your cameras, loaded into the Config API (MCT_MODEL).
 #
 # Bring-up — the two profiles are one-time setup, the third line is the stack itself:
-#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile migrate up -d
-#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile seed up -d
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile migrate run --rm dbMigrator
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile seed run --rm configApiSeeder
 #   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
 # Teardown (keeps the base stack untouched):
-#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down -v
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down
 #
 # WHAT CHANGED FROM THE PREVIOUS VERSION OF THIS OVERLAY
 # It used to ship a second broker (RabbitMQ 4), a proxy to shuttle frames from the stack's broker
 # into it, and a watchdog that mounted the Docker socket to restart a tracker that wedged. All
 # three are gone. The tracker build of the time required MQTT 5, which RabbitMQ 3.12 cannot parse
-# (MQTT 5 arrived in 3.13), hence the extra broker; the released tracker speaks MQTT 3.1.1 and
+# (MQTT 5 arrived in 3.13), hence the extra broker. The base stack now uses RabbitMQ 4;
+# the released tracker speaks MQTT 3.1.1 and
 # reads the stack's `rmq` directly. The wedge appears to have been a consequence of that extra
 # broker rather than of the tracker: it ran RabbitMQ's default 30-minute consumer_timeout, which
 # force-closes a consumer that stalls on one message, while the stack's own `rmq` is configured
-# for 6 hours (vpp/sf_dependencies/etc_rmq/rabbitmq.conf). Reading from `rmq` inherits that, so
+# for 6 hours (vpp/dependencies/docker-compose.yml). Reading from `rmq` inherits that, so
 # there is nothing left for a watchdog to recover from — and no reason to hand a container the
 # Docker socket.
 
@@ -35,7 +36,7 @@ services:
   # `pgsql`. The calibration model is hand-made per site, so it is worth isolating: it survives
   # `compose down` here and is unaffected by anything the base stack does to its own database.
   postgres:
-    image: postgres
+    image: postgres:18.6
     container_name: mct-postgres
     restart: unless-stopped
     volumes:
@@ -59,6 +60,7 @@ services:
   # `--profile migrate` — run against a fresh database, and again after raising MCT_TAG.
   dbMigrator:
     profiles: [migrate]
+    platform: linux/amd64
     image: ${MCT_REGISTRY:?error}mct-config-api:${MCT_TAG:?error}
     container_name: mct-migrate
     depends_on:
@@ -71,10 +73,13 @@ services:
   # REST API holding calibration models (cameras, homographies, floor plan). Swagger on
   # http://localhost:8002/swagger.
   configurationApi:
+    platform: linux/amd64
     image: ${MCT_REGISTRY:?error}mct-config-api:${MCT_TAG:?error}
     container_name: mct-config-api
     restart: unless-stopped
     depends_on:
+      postgres:
+        condition: service_healthy
       dbMigrator:
         condition: service_completed_successfully
         required: false
@@ -93,29 +98,33 @@ services:
 
   # `--profile seed` — loads your site's calibration from ./mct/models_data into the Config API.
   # Put the directory your calibration produced there; it must contain a folder named after
-  # MCT_MODEL. Without a model the tracker starts but produces no tracks, so this — or an
-  # equivalent manual import via :8002/swagger — is required once per site.
+  # MCT_MODEL. The tracker and visualizer cannot start until the model exists, so this — or an
+  # equivalent manual import through the Config API — is required once per site.
   # Re-running it OVERWRITES what is already in the database, so do not wire it into a routine
   # restart if you have since recalibrated in place.
   configApiSeeder:
     profiles: [seed]
+    platform: linux/amd64
     image: ${MCT_REGISTRY:?error}mct-debugconfigurationinitializer:${MCT_TAG:?error}
     container_name: mct-config-seed
     depends_on:
       configurationApi:
         condition: service_healthy
     volumes:
-      - ./models_data:/app/data/states
+      - ./models_data:/app/data/states:ro
     command: ["http://configurationApi/", "--use-calibration-v2"]
 
   # The tracking engine: consumes frame_data detections for the cameras in MCT_CLIENT_IDS,
   # projects them through the calibration model, associates across cameras and publishes the track
   # stream to the stack's `rmq` (fanout://mct_tracker.tracking_updates/).
   trackingService:
+    platform: linux/amd64
     image: ${MCT_REGISTRY:?error}mct-tracker-service:${MCT_TAG:?error}
     container_name: mct-tracker
     restart: unless-stopped
     depends_on:
+      configurationApi:
+        condition: service_healthy
       configApiSeeder:
         condition: service_completed_successfully
         required: false
@@ -153,6 +162,7 @@ services:
   # camera-assigned, so both sides agree) and publishes PositionMessages — this is what puts
   # names on the dots when SmartFace ingests the same camera feed as edge streams.
   identityIdentifier:
+    platform: linux/amd64
     image: ${MCT_REGISTRY:?error}mct-identifier:${MCT_TAG:?error}
     container_name: mct-identifier
     restart: unless-stopped
@@ -177,6 +187,7 @@ services:
   # Live floor-plan view of the tracks on http://localhost:8004 — the quickest way to verify the
   # pipeline end to end. Dots moving means tracking works.
   trackingVisualizer:
+    platform: linux/amd64
     image: ${MCT_REGISTRY:?error}mct-tracking-visualizer:${MCT_TAG:?error}
     container_name: mct-visualizer
     restart: unless-stopped
@@ -208,6 +219,7 @@ services:
   # http://localhost:8005. Worth having when a site goes quiet and you need to see what the
   # tracker was actually receiving.
   recordingService:
+    platform: linux/amd64
     image: ${MCT_REGISTRY:?error}mct-recording-service:${MCT_TAG:?error}
     container_name: mct-recording
     restart: unless-stopped
@@ -259,5 +271,5 @@ volumes:
 
 networks:
   default:
-    name: sf-network
+    name: vpp-network
     external: true
