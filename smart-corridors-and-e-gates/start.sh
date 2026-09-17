@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
+# The license must exist and be readable by the non-root user (uid 10001) the VPP containers run as.
+if [ ! -f ./secrets/iengine.lic ]; then
+  echo "ERROR: ./secrets/iengine.lic not found. Obtain a license (see README.md) and place it there." >&2
+  exit 1
+fi
+chmod a+r ./secrets/iengine.lic
+
 # The VPP release expects iengine.lic next to its docker-compose.yml.
 [ -e ./vpp/iengine.lic ] || ln -sf ../secrets/iengine.lic ./vpp/iengine.lic
 
