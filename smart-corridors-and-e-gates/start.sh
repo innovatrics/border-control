@@ -10,6 +10,7 @@ chmod a+r ./secrets/iengine.lic
 
 # The VPP release expects iengine.lic next to its docker-compose.yml.
 [ -e ./vpp/iengine.lic ] || ln -sf ../secrets/iengine.lic ./vpp/iengine.lic
+chmod a+r ./vpp/iengine.lic
 
 # Bring up VPP: dependencies, database migration, S3 bucket and services.
 (cd ./vpp && bash run.sh)
