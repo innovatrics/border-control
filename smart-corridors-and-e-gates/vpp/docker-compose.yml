@@ -1,975 +1,531 @@
+name: vpp
+x-common: &common
+  ulimits:
+    nofile:
+      soft: 65535
+      hard: 65535
+    memlock:
+      soft: -1
+      hard: -1
+  volumes:
+    - ./iengine.lic:/etc/innovatrics/iengine.lic
+# RabbitMQ, logging and health checks – consumed by every service.
+x-common-env: &common-env
+  RabbitMQ__Hostname:
+  RabbitMQ__Username:
+  RabbitMQ__Password:
+  RabbitMQ__VirtualHost:
+  RabbitMQ__Port:
+  RabbitMQ__UseSsl:
+  AppSettings__Log_RollingFile_Enabled:
+  AppSettings__Log_RollingFile_Directory:
+  AppSettings__Log_RollingFile_MaxSizeMB:
+  AppSettings__Log_RollingFile_MaxFiles:
+  AppSettings__Log_RabbitMq_Enabled:
+  AppSettings__Log_JsonConsole_Enabled:
+  Serilog__MinimumLevel__Default:
+  Serilog__MinimumLevel__Override__Microsoft:
+  Serilog__MinimumLevel__Override__Microsoft.AspNetCore:
+  Serilog__MinimumLevel__Override__Microsoft.Hosting.Lifetime:
+  Serilog__MinimumLevel__Override__System:
+  HealthCheck__Host:
+  HealthCheck__Port:
+x-db-env: &db-env
+  ConnectionStrings__CoreDbContext:
+  Database__DbEngine:
+  Database__ExtendedCommandTimeoutSeconds:
+x-s3-env: &s3-env
+  S3Bucket__Endpoint:
+  S3Bucket__BucketName:
+  S3Bucket__BucketRegion:
+  S3Bucket__Folder:
+  S3Bucket__AccessKey:
+  S3Bucket__SecretKey:
+  S3Bucket__AuthenticationType:
+  S3Bucket__UseBucketRegion:
+x-mqtt-env: &mqtt-env
+  MQTT__Hostname:
+  MQTT__Username:
+  MQTT__Password:
+  MQTT__Port:
+  MQTT__UseSsl:
+x-otel-metrics-prometheus-env: &otel-metrics-prometheus-env
+  OTEL_METRICS_EXPORTER:
+  OTEL_EXPORTER_PROMETHEUS_HOST:
+  OTEL_EXPORTER_PROMETHEUS_PORT:
+x-tracing-env: &tracing-env
+  Tracing__Enabled:
+  OTEL_TRACES_SAMPLER:
+  OTEL_TRACES_SAMPLER_ARG:
+  OTEL_EXPORTER_OTLP_ENDPOINT:
+x-gpu-env: &gpu-env
+  Gpu__GpuEnabled:
+  Gpu__GpuDeviceIndex:
+  Gpu__GpuNeuralRuntime:
+x-onnx-env: &onnx-env
+  OnnxRuntimeConfiguration__SolverInterThreads:
+  OnnxRuntimeConfiguration__SolverIntraThreads:
+x-iface-env: &iface-env
+  IFaceConfiguration__ThreadNum:
+  IFaceConfiguration__ThreadManagementMode:
+x-metrics-bands-env: &metrics-bands-env
+  Metrics__RequestsProcessingTimeHistogramBands:
+# Authentication / multitenancy – consumed by api, graphql-api and the sync leader.
+x-auth-env: &auth-env
+  Authentication__UseAuthentication:
+  Authentication__IgnoreHttpsIssuerCheck:
+  Authentication__Authority:
+  Authentication__Audience:
+  Authentication__SwaggerAuthConfig__ClientCredsTokenUrl:
+  Authentication__SwaggerAuthConfig__AuthCodeTokenUrl:
+  Authentication__SwaggerAuthConfig__AuthCodeAuthorizeUrl:
+  Multitenancy__UseMultitenancy:
+  Multitenancy__TenantClaimName:
+# Save strategies – consumed by cam and edge-stream-processor.
+x-save-strategies-env: &save-strategies-env
+  BalancedFaceStrategy__QualityStep:
+  BalancedFaceStrategy__MatchScoreStep:
+  MatchedOnlyFaceStrategy__MatchScoreStep:
+  BalancedPedestrianStrategy__QualityStep:
+  BalancedGenericObjectStrategy__QualityStep:
+  BalancedGenericObjectStrategy__MatchScoreStep:
+  MatchedOnlyObjectStrategy__MatchScoreStep:
+# Camera-specific settings shared by every cam instance.
+x-cam-env: &cam-env
+  NoSqlDataStorageDisabled:
+  Rpc__TimeoutMs:
+  GstPipelineTemplate:
+  CropConfiguration__BackgroundColor:
+  Notifications__IncludeTemplates:
+  ObjectLinking__Enabled:
+  StreamVisualization__StreamOnlyProcessed:
+  StreamVisualization__BufferingFramesCount:
+  StreamVisualization__InterpolateBoundingBoxes:
+  TrackingConfiguration__MaxOldnessDetectionFrames:
+x-labels-logging: &labels-logging
+  logging: promtail
+x-labels-metrics: &labels-metrics
+  scrapeMetrics: "true"
+x-labels-application: &labels-application
+  application: "smartface"
 services:
-  sf-base:
-    image: ${REGISTRY}sf-base:${SF_VERSION}
-    container_name: SFBase
-    labels:
-      application: smartface
-      scrapeMetrics: true
+  base:
+    image: ${REGISTRY}base:${VERSION}
     command: --serviceName SFBase
+    !!merge <<: *common
     ports:
       - 2406:2406
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *metrics-bands-env]
+      NoSqlDataStorageDisabled:
+      DbCleanUp__BatchSize:
+      VideoRecordSlicing__ChunkLength:
+      TrackletRecovery__TrackletRecoveryTriggerPeriodSeconds:
+      TrackletRecovery__MinimumVisualObjectAgeForTrackletRecoverySeconds:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
+  streamdatadbworker:
+    image: ${REGISTRY}streamdatadbworker:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  sf-group:
-    image: ${REGISTRY}sf-grouping:${SF_VERSION}
-    container_name: SFGroup
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
+      NoSqlDataStorageDisabled:
+      StreamDataConsumer__BlobProcessorCount:
+      StreamDataConsumer__BatchSize:
     labels:
-      application: smartface
-      scrapeMetrics: true
-    command: --serviceName SFGroup
+      !!merge <<: [*labels-logging, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
+  grouping:
+    image: ${REGISTRY}grouping:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  sf-streamdatadbworker:
-    image: ${REGISTRY}sf-streamdatadbworker:${SF_VERSION}
-    container_name: SFStreamDataDbWorker
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *iface-env, *metrics-bands-env]
+      Grouping__TemplateQualityThreshold:
+      LiveGrouping__UpdateTimeMs:
+      LiveGrouping__DelayOffsetMs:
     labels:
-      application: smartface
-      scrapeMetrics: true
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  sf-cam-1:
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    container_name: SFCam1
-    labels:
-      application: smartface
-      scrapeMetrics: true
+  cam-1:
+    image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam1
+    !!merge <<: *common
     ports:
-      - 30001:${CameraDefaults__PreviewPort}
+      - 30001:30001
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      SF_OPENCV_API:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-    # - GstPipelineTemplate
-    # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
-  sf-cam-2:
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    container_name: SFCam2
-    labels:
-      application: smartface
-      scrapeMetrics: true
+  cam-2:
+    image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam2
+    !!merge <<: *common
     ports:
-      - 30002:${CameraDefaults__PreviewPort}
+      - 30002:30002
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      SF_OPENCV_API:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-    # - GstPipelineTemplate
-    # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
-  sf-cam-3:
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    container_name: SFCam3
-    labels:
-      application: smartface
-      scrapeMetrics: true
+  cam-3:
+    image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam3
+    !!merge <<: *common
     ports:
-      - 30003:${CameraDefaults__PreviewPort}
+      - 30003:30003
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      SF_OPENCV_API:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-    # - GstPipelineTemplate
-    # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
-  sf-cam-4:
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    container_name: SFCam4
-    labels:
-      application: smartface
-      scrapeMetrics: true
+  cam-4:
+    image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam4
+    !!merge <<: *common
     ports:
-      - 30004:${CameraDefaults__PreviewPort}
+      - 30004:30004
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      SF_OPENCV_API:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-    # - GstPipelineTemplate
-    # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
-  sf-cam-5:
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
-    container_name: SFCam5
-    labels:
-      application: smartface
-      scrapeMetrics: true
+  cam-5:
+    image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam5
+    !!merge <<: *common
     ports:
-      - 30005:${CameraDefaults__PreviewPort}
+      - 30005:30005
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      SF_OPENCV_API:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-    # - GstPipelineTemplate
-    # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
-  sf-cam-nx:
-    image: ${REGISTRY}sf-cam:${SF_VERSION}
+  cam-nx:
+    image: ${REGISTRY}cam:${VERSION}
     # Guid needs to match ServiceInstallNames.NX_TEST_CAMERA_GUID
-    container_name: 53b4d78e-323f-4a0f-aa6d-99c464448b6d
-    labels:
-      application: smartface
-      scrapeMetrics: true
     command: --serviceName 53b4d78e-323f-4a0f-aa6d-99c464448b6d
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-    # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
-  api:
-    image: ${REGISTRY}sf-api:${SF_VERSION}
-    container_name: SFApi
-    labels:
-      application: smartface
-      scrapeMetrics: true
-    ports:
-      # we forward the configured ports to default SF ports
-      - 8098:${Hosting__Port}
-    expose:
-      - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - MQTT__Hostname
-      - MQTT__Username
-      - MQTT__Password
-      - MQTT__Port
-      - MQTT__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - Hosting__Host
-      - Hosting__Port
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-      - CameraDefaults__PreviewPort
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-      - FaceValidation__Size__Min
-      - FaceValidation__Size__Max
-      - FaceValidation__AreaOnFrame__Min
-      - FaceValidation__AreaOnFrame__Max
-      - FaceValidation__TemplateQuality__Min
-      - FaceValidation__TemplateQuality__Max
-      - FaceValidation__FaceQuality__Min
-      - FaceValidation__FaceQuality__Max
-      - FaceValidation__YawAngle__Min
-      - FaceValidation__YawAngle__Max
-      - FaceValidation__PitchAngle__Min
-      - FaceValidation__PitchAngle__Max
-      - FaceValidation__RollAngle__Min
-      - FaceValidation__RollAngle__Max
-      - FaceValidation__Brightness__Min
-      - FaceValidation__Brightness__Max
-      - FaceValidation__Sharpness__Min
-      - FaceValidation__Sharpness__Max
-      - PalmValidation__PalmQuality__Min
-      - PalmValidation__PalmQuality__Max
-      - TrackletRecovery__TrackletRecoveryTriggerPeriodSeconds
-      - TrackletRecovery__MinimumVisualObjectAgeForTrackletRecoverySeconds
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  sf-graphql-api:
-    image: ${REGISTRY}sf-graphql-api:${SF_VERSION}
-    container_name: SFGraphQLApi
-    labels:
-      application: smartface
-      scrapeMetrics: true
+  graphql-api:
+    image: ${REGISTRY}graphql-api:${VERSION}
+    !!merge <<: *common
     ports:
       # we forward the configured ports to default SF ports
       - 8097:${Hosting__Port}
-    expose:
-      - 4318
-    restart: unless-stopped
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - MQTT__Hostname
-      - MQTT__Username
-      - MQTT__Password
-      - MQTT__Port
-      - MQTT__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - Hosting__Host
-      - Hosting__Port
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - AppSettings__Log_RabbitMq_Enabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-      - Notifications__IncludeTemplates
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  odata-api:
-    image: ${REGISTRY}sf-odata-api:${SF_VERSION}
-    container_name: SFODataApi
+      !!merge <<: [*common-env, *db-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
+      Hosting__Host:
+      Hosting__Port:
+      AllowedHosts:
+      HealthCheck__Tags__db:
+      HealthCheck__Tags__rmq:
+      Notifications__IncludeTemplates:
     labels:
-      application: smartface
-      scrapeMetrics: true
+      !!merge <<: [*labels-logging, *labels-application]
+  api:
+    image: ${REGISTRY}api:${VERSION}
+    !!merge <<: *common
     ports:
       # we forward the configured ports to default SF ports
-      - 8099:${Hosting__Port}
+      - 8098:${Hosting__Port}
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
+      # service-specific overrides of shared defaults (appsettings values)
+      Serilog__MinimumLevel__Override__Microsoft: Debug
+      Rpc__TimeoutMs: 6000
+      Hosting__Host:
+      Hosting__Port:
+      AllowedHosts:
+      HealthCheck__Tags__db:
+      HealthCheck__Tags__rmq:
+      NoSqlDataStorageDisabled:
+      CameraDefaults__PreviewPort:
+      FeatureManagement__Watchlist:
+      FeatureManagement__Edge:
+      FeatureManagement__Full:
+      FeatureManagement__Detection:
+      FeatureManagement__ReadOnlyWatchlists:
+      Totp__QrCodeImageEndpointEnabled:
+      Totp__Digits:
+      Totp__PeriodSeconds:
+      Totp__Algorithm:
+      VectorDB__Provider:
+      VectorDB__RerankQueryLimitA:
+      VectorDB__RerankQueryLimitB:
+      Milvus__Endpoint:
+      Milvus__UseAuthentication:
+      Milvus__Username:
+      Milvus__Password:
+      Milvus__Token:
+      WatchlistDeleter__WatchlistMemberUnlinkBatchSize:
+      FaceValidation__Size__Min:
+      FaceValidation__Size__Max:
+      FaceValidation__AreaOnFrame__Min:
+      FaceValidation__AreaOnFrame__Max:
+      FaceValidation__TemplateQuality__Min:
+      FaceValidation__TemplateQuality__Max:
+      FaceValidation__FaceQuality__Min:
+      FaceValidation__FaceQuality__Max:
+      FaceValidation__YawAngle__Min:
+      FaceValidation__YawAngle__Max:
+      FaceValidation__PitchAngle__Min:
+      FaceValidation__PitchAngle__Max:
+      FaceValidation__RollAngle__Min:
+      FaceValidation__RollAngle__Max:
+      FaceValidation__Brightness__Min:
+      FaceValidation__Brightness__Max:
+      FaceValidation__Sharpness__Min:
+      FaceValidation__Sharpness__Max:
+      PalmValidation__PalmQuality__Min:
+      PalmValidation__PalmQuality__Max:
+      Statistics__SendStatisticsData:
+      Statistics__TransactionCountingSystemUrl:
+      Statistics__Authentication__CrmToken:
+      Statistics__Authentication__OAuth__TokenEndpoint:
+      Statistics__Authentication__OAuth__Audience:
+      Statistics__Authentication__OAuth__ClientId:
+      Statistics__Authentication__OAuth__ClientSecret:
+      Statistics__TransactionsPublishBatchSize:
+      Statistics__TransactionsPublishTimeoutMs:
+      Statistics__TransactionsPublishIntervalMs:
+      Statistics__TransactionsPublishRetryBackoffMs:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - Hosting__Host
-      - Hosting__Port
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
   detector:
-    image: ${REGISTRY}sf-detector:${SF_VERSION}
-    container_name: SFDetectCpu
-    labels:
-      application: smartface
-    restart: unless-stopped
+    image: ${REGISTRY}detector:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      # - Gpu__GpuEnabled=true
-      # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      CropConfiguration__BackgroundColor:
+      Warmup__DetectionAlgorithms:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
+    expose:
+      - 4318
   pedestrian-detector:
-    image: ${REGISTRY}sf-pedestrian-detector:${SF_VERSION}
-    container_name: SFPedestrianDetectCpu
-    labels:
-      application: smartface
-    restart: unless-stopped
+    image: ${REGISTRY}pedestrian-detector:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      # - Gpu__GpuEnabled=true
-      # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
-  object-detector:
-    image: ${REGISTRY}sf-object-detector:${SF_VERSION}
-    container_name: SFObjectDetectorCpu
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      CropConfiguration__BackgroundColor:
     labels:
-      application: smartface
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      # - Gpu__GpuEnabled=true
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    #runtime: nvidia
-
-  palm-detector:
-    image: ${REGISTRY}sf-palm-detector:${SF_VERSION}
-    container_name: SFPalmDetectCpu
-    labels:
-      application: smartface
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  palm-extractor:
-    image: ${REGISTRY}sf-palm-extractor:${SF_VERSION}
-    container_name: SFPalmExtractCpu
-    labels:
-      application: smartface
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  pedestrian-extractor:
-    image: ${REGISTRY}sf-pedestrian-extractor:${SF_VERSION}
-    container_name: SFPedestrianExtractorCpu
-    labels:
-      application: smartface
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      # - Gpu__GpuEnabled=true
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    #runtime: nvidia
-
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
+    expose:
+      - 4318
   extractor:
-    image: ${REGISTRY}sf-extractor:${SF_VERSION}
-    container_name: SFExtractCpu
+    image: ${REGISTRY}extractor:${VERSION}
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      Serilog__MinimumLevel__Override__Microsoft: Debug
+      Extraction__Algorithm:
     labels:
-      application: smartface
-      scrapeMetrics: true
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      # - Gpu__GpuEnabled=true
-      # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
   matcher:
-    image: ${REGISTRY}sf-matcher:${SF_VERSION}
-    container_name: SFWatchlistMatcher
-    labels:
-      application: smartface
-    restart: unless-stopped
+    image: ${REGISTRY}matcher:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    cpuset: "0"
-
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *metrics-bands-env]
+      WatchlistMatcher__SeedPageSize:
+      Matching__ThreadCount:
+      Multitenancy__TenantId:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
+    expose:
+      - 4318
   face-matcher:
-    image: ${REGISTRY}sf-face-matcher:${SF_VERSION}
-    container_name: SFFaceMatcher
-    labels:
-      application: smartface
-    restart: unless-stopped
+    image: ${REGISTRY}face-matcher:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *iface-env, *metrics-bands-env]
+      FaceMatcher__SeedPageSize:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
+    expose:
+      - 4318
   liveness:
-    image: ${REGISTRY}sf-liveness:${SF_VERSION}
-    container_name: SFLiveness
+    image: ${REGISTRY}liveness:${VERSION}
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      Serilog__MinimumLevel__Override__Microsoft: Debug
+      Liveness__DistantAlgorithm:
+      Warmup__LivenessAlgorithms:
     labels:
-      application: smartface
-      scrapeMetrics: true
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
-    environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      # - Gpu__GpuEnabled=true
-      # - Gpu__GpuNeuralRuntime=Tensor
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-    # - "/var/tmp/innovatrics/tensor-rt:/var/tmp/innovatrics/tensor-rt"
-    #runtime: nvidia
-
   video-aggregator:
-    image: ${REGISTRY}sf-video-aggregator:${SF_VERSION}
-    container_name: SFVideoDataAggregator
-    labels:
-      application: smartface
-    restart: unless-stopped
+    image: ${REGISTRY}video-aggregator:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
+      !!merge <<: [*common-env, *db-env, *s3-env]
+      Rpc__TimeoutMs:
+      NoSqlDataStorageDisabled:
+      Aggregation__AggregationSimilarityThreshold:
+      Aggregation__TrackletAggregationPeriodMs:
+      Aggregation__MatchRequestParallelism:
+      Aggregation__Export:
+      Aggregation__EntityNotificationsEnabled:
+    labels:
+      !!merge <<: [*labels-logging, *labels-application]
   video-collector:
-    image: ${REGISTRY}sf-video-collector:${SF_VERSION}
-    container_name: SFVideoDataCollector
-    labels:
-      application: smartface
-    restart: unless-stopped
+    image: ${REGISTRY}video-collector:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - NoSqlDataStorageDisabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  video-reader:
-    image: ${REGISTRY}sf-video-reader:${SF_VERSION}
-    container_name: SFVideoReader
+      !!merge <<: [*common-env, *db-env, *s3-env]
+      NoSqlDataStorageDisabled:
+      VideoRecordCollecting__BatchSize:
+      S3ClientLifetime__S3ClientLifetime:
     labels:
-      application: smartface
-      scrapeMetrics: true
+      !!merge <<: [*labels-logging, *labels-application]
+  video-reader:
+    image: ${REGISTRY}video-reader:${VERSION}
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
+      ActivityMonitor__WarningTimeMinutes:
+      ActivityMonitor__ErrorTimeMinutes:
+    labels:
+      !!merge <<: [*labels-logging, *labels-application]
+  edge-stream-processor:
+    image: ${REGISTRY}edge-stream-processor:${VERSION}
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *save-strategies-env]
+      Serilog__MinimumLevel__Override__Microsoft: Debug
+      Rpc__TimeoutMs:
+      NoSqlDataStorageDisabled:
+      ObjectLinking__Enabled:
+      Notifications__IncludeTemplates:
+      FrameDataProcessing__ForceExtractionOfIncompatibleFaceTemplates:
+      EdgeStreamRmqConsumer__ExchangeName:
+      EdgeStreamRmqConsumer__QueueName:
+      EdgeStreamRmqConsumer__RoutingKey:
+    labels:
+      !!merge <<: [*labels-logging, *labels-application]
+  edge-streams-state-synchronizer:
+    image: ${REGISTRY}edge-streams-state-synchronizer:${VERSION}
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *db-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env]
+      Rpc__TimeoutMs: 10000
+      RabbitMQ__StreamsPort:
+      NoSqlDataStorageDisabled:
+      SynchronizationConfig__UpdateLogReadBatchCount:
+      SynchronizationConfig__BatchTriggerMs:
+    labels:
+      !!merge <<: [*labels-logging, *labels-application]
+  pedestrian-extractor:
+    image: ${REGISTRY}pedestrian-extractor:${VERSION}
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *metrics-bands-env]
+      Extraction__Attributes__AppendInterpretedAttributesUnderLowerThreshold:
+      Extraction__Attributes__AppendConfidenceAttributes:
+      Extraction__Attributes__AppendInterpretedAttributes:
+      Extraction__Attributes__InterpretationThresholds__CommonThresholdUpper:
+      Extraction__Attributes__InterpretationThresholds__CommonThresholdLower:
+      Extraction__Attributes__InterpretationThresholds__GlassesThresholdUpper:
+      Extraction__Attributes__InterpretationThresholds__GlassesThresholdLower:
+      Extraction__Attributes__InterpretationThresholds__HoldThresholdUpper:
+      Extraction__Attributes__InterpretationThresholds__HoldThresholdLower:
+    labels:
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-    restart: unless-stopped
+  object-detector:
+    image: ${REGISTRY}object-detector:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - S3Bucket__Endpoint
-      - S3Bucket__BucketName
-      - S3Bucket__AccessKey
-      - S3Bucket__SecretKey
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - "./iengine.lic:/etc/innovatrics/iengine.lic"
-
-  edge-stream-processor:
-    image: ${REGISTRY}sf-edge-stream-processor:${SF_VERSION}
-    container_name: SFEdgeStreamProcessor
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *metrics-bands-env]
+      Detection__Algorithm:
+      Detection__ClassThreshold:
     labels:
-      application: smartface
-    restart: unless-stopped
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
+    expose:
+      - 4318
+  palm-detector:
+    image: ${REGISTRY}palm-detector:${VERSION}
+    !!merge <<: *common
     environment:
-      - Notifications__IncludeTemplates
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - AppSettings__Log_RabbitMq_Enabled
-      - NoSqlDataStorageDisabled
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  edge-streams-state-synchronizer:
-    image: ${REGISTRY}sf-edge-streams-state-synchronizer:${SF_VERSION}
-    container_name: SFEdgeStreamsStateSynchronizer
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
+      # palm-detector needs SolverIntraThreads=4; the .env default (1) only applies to InterThreads.
+      OnnxRuntimeConfiguration__SolverIntraThreads: 4
+      Warmup__LivenessEnabled:
+      Detection__SolverName:
     labels:
-      application: smartface
-    restart: unless-stopped
+      !!merge <<: [*labels-logging, *labels-metrics]
+    expose:
+      - 4318
+  palm-extractor:
+    image: ${REGISTRY}palm-extractor:${VERSION}
+    !!merge <<: *common
     environment:
-      - RabbitMQ__Hostname
-      - RabbitMQ__Username
-      - RabbitMQ__Password
-      - RabbitMQ__Port
-      - RabbitMQ__VirtualHost
-      - RabbitMQ__UseSsl
-      - RabbitMQ__StreamsPort
-      - MQTT__Hostname
-      - MQTT__Username
-      - MQTT__Password
-      - MQTT__Port
-      - MQTT__UseSsl
-      - ConnectionStrings__CoreDbContext
-      - Database__DbEngine
-      - AppSettings__Log_RollingFile_Enabled=false
-      - AppSettings__Log_JsonConsole_Enabled
-      - AppSettings__Log_RabbitMq_Enabled
-      - Rpc__TimeoutMs
-      - Tracing__Enabled
-      - OTEL_TRACES_SAMPLER
-      - OTEL_TRACES_SAMPLER_ARG
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_METRICS_EXPORTER
-      - OTEL_EXPORTER_PROMETHEUS_HOST
-      - OTEL_EXPORTER_PROMETHEUS_PORT
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
-  sf-station:
-    image: ${REGISTRY}sf-station:${SFS_VERSION}
-    container_name: SFStation
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
+      # palm-extractor needs SolverIntraThreads=4; the .env default (1) only applies to InterThreads.
+      OnnxRuntimeConfiguration__SolverIntraThreads: 4
     labels:
-      application: smartface
-    restart: unless-stopped
+      !!merge <<: [*labels-logging, *labels-metrics]
+    expose:
+      - 4318
+  db-synchronization-leader:
+    image: ${REGISTRY}db-synchronization-leader:${VERSION}
+    !!merge <<: *common
     ports:
-      - 8000:8000
-    env_file: .env.sfstation
-    volumes:
-      - ./iengine.lic:/etc/innovatrics/iengine.lic
-
+      # we forward the configured ports to default SF ports
+      - 8100:${Hosting__Port}
+    environment:
+      !!merge <<: [*common-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
+      Hosting__Host:
+      Hosting__Port:
+      RabbitMQ__StreamsPort:
+      Kestrel__EndpointDefaults__Protocols:
+      Synchronization__BatchUpdateLogReadSize:
+      Synchronization__BatchTriggerTimeoutMs:
+      Synchronization__MaxBatchWaitTimeMs:
+    labels:
+      !!merge <<: [*labels-logging, *labels-application]
+  db-synchronization-follower:
+    image: ${REGISTRY}db-synchronization-follower:${VERSION}
+    !!merge <<: *common
+    environment:
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
+      RabbitMQ__StreamsPort:
+      Leader__Address:
+      Leader__RequestBatchSize:
+      ClientAuthentication__UseAuthentication:
+      ClientAuthentication__TokenEndpoint:
+      ClientAuthentication__ClientId:
+      ClientAuthentication__ClientSecret:
+      ClientAuthentication__Audience:
+    labels:
+      !!merge <<: [*labels-logging, *labels-application]
 networks:
   default:
-    name: sf-network
+    name: vpp-network
     external: true

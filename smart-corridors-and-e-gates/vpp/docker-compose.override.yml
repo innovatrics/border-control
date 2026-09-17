@@ -1,0 +1,60 @@
+# Smart Corridors local addition (not part of the VPP release): docker compose merges this file
+# automatically with docker-compose.yml. The release ships no restart policy, so a service that
+# crashes once (e.g. during the start-up burst) would stay down. Bring every service back up.
+services:
+  base:
+    restart: unless-stopped
+  streamdatadbworker:
+    restart: unless-stopped
+  grouping:
+    restart: unless-stopped
+  cam-1:
+    restart: unless-stopped
+  cam-2:
+    restart: unless-stopped
+  cam-3:
+    restart: unless-stopped
+  cam-4:
+    restart: unless-stopped
+  cam-5:
+    restart: unless-stopped
+  cam-nx:
+    restart: unless-stopped
+  graphql-api:
+    restart: unless-stopped
+  api:
+    restart: unless-stopped
+  detector:
+    restart: unless-stopped
+  pedestrian-detector:
+    restart: unless-stopped
+  extractor:
+    restart: unless-stopped
+  matcher:
+    restart: unless-stopped
+  face-matcher:
+    restart: unless-stopped
+  liveness:
+    restart: unless-stopped
+  video-aggregator:
+    restart: unless-stopped
+  video-collector:
+    restart: unless-stopped
+  video-reader:
+    restart: unless-stopped
+  edge-stream-processor:
+    restart: unless-stopped
+  edge-streams-state-synchronizer:
+    restart: unless-stopped
+  pedestrian-extractor:
+    restart: unless-stopped
+  object-detector:
+    restart: unless-stopped
+  palm-detector:
+    restart: unless-stopped
+  palm-extractor:
+    restart: unless-stopped
+  db-synchronization-leader:
+    restart: unless-stopped
+  db-synchronization-follower:
+    restart: unless-stopped
