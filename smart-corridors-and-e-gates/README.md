@@ -33,6 +33,8 @@ Provide this ID when requesting a license from the [Customer Portal](https://cus
 
 Once you have the file, place it at `./secrets/iengine.lic` before running `start.sh`.
 
+The VPP containers run as a non-root user (uid 10001), so the license file must be world-readable (`chmod 644 secrets/iengine.lic`). `start.sh` applies this automatically; a license the containers cannot read shows up as `No license file was found` in the VPP logs.
+
 ## Registry login
 
 All images — the Smart Corridors services and the VPP — are served from a single registry. Before the first run:
