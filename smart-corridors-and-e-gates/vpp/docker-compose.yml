@@ -98,7 +98,6 @@ x-cam-env: &cam-env
   CropConfiguration__BackgroundColor:
   Notifications__IncludeTemplates:
   ObjectLinking__Enabled:
-  SpoofDetection__SkipUnidentified:
   StreamVisualization__StreamOnlyProcessed:
   StreamVisualization__BufferingFramesCount:
   StreamVisualization__InterpolateBoundingBoxes:
@@ -113,126 +112,128 @@ services:
   base:
     image: ${REGISTRY}base:${VERSION}
     command: --serviceName SFBase
-    <<: *common
+    !!merge <<: *common
+    ports:
+      - 2406:2406
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *metrics-bands-env]
       NoSqlDataStorageDisabled:
       DbCleanUp__BatchSize:
       VideoRecordSlicing__ChunkLength:
       TrackletRecovery__TrackletRecoveryTriggerPeriodSeconds:
       TrackletRecovery__MinimumVisualObjectAgeForTrackletRecoverySeconds:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   streamdatadbworker:
     image: ${REGISTRY}streamdatadbworker:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
       NoSqlDataStorageDisabled:
       StreamDataConsumer__BlobProcessorCount:
       StreamDataConsumer__BatchSize:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
     expose:
       - 4318
   grouping:
     image: ${REGISTRY}grouping:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *iface-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *iface-env, *metrics-bands-env]
       Grouping__TemplateQualityThreshold:
       LiveGrouping__UpdateTimeMs:
       LiveGrouping__DelayOffsetMs:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   cam-1:
     image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam1
-    <<: *common
+    !!merge <<: *common
     ports:
       - 30001:30001
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
       SF_OPENCV_API:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   cam-2:
     image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam2
-    <<: *common
+    !!merge <<: *common
     ports:
       - 30002:30002
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
       SF_OPENCV_API:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   cam-3:
     image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam3
-    <<: *common
+    !!merge <<: *common
     ports:
       - 30003:30003
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
       SF_OPENCV_API:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   cam-4:
     image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam4
-    <<: *common
+    !!merge <<: *common
     ports:
       - 30004:30004
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
       SF_OPENCV_API:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   cam-5:
     image: ${REGISTRY}cam:${VERSION}
     command: --serviceName SFCam5
-    <<: *common
+    !!merge <<: *common
     ports:
       - 30005:30005
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
       SF_OPENCV_API:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   cam-nx:
     image: ${REGISTRY}cam:${VERSION}
     # Guid needs to match ServiceInstallNames.NX_TEST_CAMERA_GUID
     command: --serviceName 53b4d78e-323f-4a0f-aa6d-99c464448b6d
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *iface-env, *cam-env, *save-strategies-env]
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   graphql-api:
     image: ${REGISTRY}graphql-api:${VERSION}
-    <<: *common
+    !!merge <<: *common
     ports:
       # we forward the configured ports to default SF ports
       - 8097:${Hosting__Port}
     environment:
-      <<: [*common-env, *db-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
+      !!merge <<: [*common-env, *db-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
       Hosting__Host:
       Hosting__Port:
       AllowedHosts:
@@ -240,15 +241,15 @@ services:
       HealthCheck__Tags__rmq:
       Notifications__IncludeTemplates:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
   api:
     image: ${REGISTRY}api:${VERSION}
-    <<: *common
+    !!merge <<: *common
     ports:
       # we forward the configured ports to default SF ports
       - 8098:${Hosting__Port}
     environment:
-      <<: [*common-env, *db-env, *s3-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
       # service-specific overrides of shared defaults (appsettings values)
       Serilog__MinimumLevel__Override__Microsoft: Debug
       Rpc__TimeoutMs: 6000
@@ -276,11 +277,6 @@ services:
       Milvus__Username:
       Milvus__Password:
       Milvus__Token:
-      ImageDownload__TimeoutMs:
-      ImageDownload__MaxImageSizeBytes:
-      ImageDownload__AllowedHosts:
-      ImageDownload__MaxParallelDownloads:
-      WatchlistMemberRegistration__MaxImages:
       WatchlistDeleter__WatchlistMemberUnlinkBatchSize:
       FaceValidation__Size__Min:
       FaceValidation__Size__Max:
@@ -314,80 +310,80 @@ services:
       Statistics__TransactionsPublishIntervalMs:
       Statistics__TransactionsPublishRetryBackoffMs:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   detector:
     image: ${REGISTRY}detector:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
       CropConfiguration__BackgroundColor:
       Warmup__DetectionAlgorithms:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   pedestrian-detector:
     image: ${REGISTRY}pedestrian-detector:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
       CropConfiguration__BackgroundColor:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   extractor:
     image: ${REGISTRY}extractor:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
       Serilog__MinimumLevel__Override__Microsoft: Debug
       Extraction__Algorithm:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   matcher:
     image: ${REGISTRY}matcher:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *metrics-bands-env]
       WatchlistMatcher__SeedPageSize:
       Matching__ThreadCount:
       Multitenancy__TenantId:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   face-matcher:
     image: ${REGISTRY}face-matcher:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *iface-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *iface-env, *metrics-bands-env]
       FaceMatcher__SeedPageSize:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   liveness:
     image: ${REGISTRY}liveness:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *iface-env, *metrics-bands-env]
       Serilog__MinimumLevel__Override__Microsoft: Debug
       Liveness__DistantAlgorithm:
       Warmup__LivenessAlgorithms:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   video-aggregator:
     image: ${REGISTRY}video-aggregator:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *s3-env]
+      !!merge <<: [*common-env, *db-env, *s3-env]
       Rpc__TimeoutMs:
       NoSqlDataStorageDisabled:
       Aggregation__AggregationSimilarityThreshold:
@@ -396,60 +392,59 @@ services:
       Aggregation__Export:
       Aggregation__EntityNotificationsEnabled:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
   video-collector:
     image: ${REGISTRY}video-collector:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *s3-env]
+      !!merge <<: [*common-env, *db-env, *s3-env]
       NoSqlDataStorageDisabled:
       VideoRecordCollecting__BatchSize:
       S3ClientLifetime__S3ClientLifetime:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
   video-reader:
     image: ${REGISTRY}video-reader:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
+      !!merge <<: [*common-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
       ActivityMonitor__WarningTimeMinutes:
       ActivityMonitor__ErrorTimeMinutes:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
   edge-stream-processor:
     image: ${REGISTRY}edge-stream-processor:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *save-strategies-env]
+      !!merge <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *save-strategies-env]
       Serilog__MinimumLevel__Override__Microsoft: Debug
       Rpc__TimeoutMs:
       NoSqlDataStorageDisabled:
       ObjectLinking__Enabled:
-      SpoofDetection__SkipUnidentified:
       Notifications__IncludeTemplates:
       FrameDataProcessing__ForceExtractionOfIncompatibleFaceTemplates:
       EdgeStreamRmqConsumer__ExchangeName:
       EdgeStreamRmqConsumer__QueueName:
       EdgeStreamRmqConsumer__RoutingKey:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
   edge-streams-state-synchronizer:
     image: ${REGISTRY}edge-streams-state-synchronizer:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env]
+      !!merge <<: [*common-env, *db-env, *mqtt-env, *otel-metrics-prometheus-env, *tracing-env]
       Rpc__TimeoutMs: 10000
       RabbitMQ__StreamsPort:
       NoSqlDataStorageDisabled:
       SynchronizationConfig__UpdateLogReadBatchCount:
       SynchronizationConfig__BatchTriggerMs:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
   pedestrian-extractor:
     image: ${REGISTRY}pedestrian-extractor:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *metrics-bands-env]
       Extraction__Attributes__AppendInterpretedAttributesUnderLowerThreshold:
       Extraction__Attributes__AppendConfidenceAttributes:
       Extraction__Attributes__AppendInterpretedAttributes:
@@ -460,52 +455,52 @@ services:
       Extraction__Attributes__InterpretationThresholds__HoldThresholdUpper:
       Extraction__Attributes__InterpretationThresholds__HoldThresholdLower:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   object-detector:
     image: ${REGISTRY}object-detector:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *gpu-env, *onnx-env, *metrics-bands-env]
       Detection__Algorithm:
       Detection__ClassThreshold:
     labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
+      !!merge <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   palm-detector:
     image: ${REGISTRY}palm-detector:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
       # palm-detector needs SolverIntraThreads=4; the .env default (1) only applies to InterThreads.
       OnnxRuntimeConfiguration__SolverIntraThreads: 4
       Warmup__LivenessEnabled:
       Detection__SolverName:
     labels:
-      <<: [*labels-logging, *labels-metrics]
+      !!merge <<: [*labels-logging, *labels-metrics]
     expose:
       - 4318
   palm-extractor:
     image: ${REGISTRY}palm-extractor:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
+      !!merge <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
       # palm-extractor needs SolverIntraThreads=4; the .env default (1) only applies to InterThreads.
       OnnxRuntimeConfiguration__SolverIntraThreads: 4
     labels:
-      <<: [*labels-logging, *labels-metrics]
+      !!merge <<: [*labels-logging, *labels-metrics]
     expose:
       - 4318
   db-synchronization-leader:
     image: ${REGISTRY}db-synchronization-leader:${VERSION}
-    <<: *common
+    !!merge <<: *common
     ports:
       # we forward the configured ports to default SF ports
       - 8100:${Hosting__Port}
     environment:
-      <<: [*common-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
+      !!merge <<: [*common-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env, *auth-env]
       Hosting__Host:
       Hosting__Port:
       RabbitMQ__StreamsPort:
@@ -514,12 +509,12 @@ services:
       Synchronization__BatchTriggerTimeoutMs:
       Synchronization__MaxBatchWaitTimeMs:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
   db-synchronization-follower:
     image: ${REGISTRY}db-synchronization-follower:${VERSION}
-    <<: *common
+    !!merge <<: *common
     environment:
-      <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
+      !!merge <<: [*common-env, *db-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
       RabbitMQ__StreamsPort:
       Leader__Address:
       Leader__RequestBatchSize:
@@ -529,7 +524,7 @@ services:
       ClientAuthentication__ClientSecret:
       ClientAuthentication__Audience:
     labels:
-      <<: [*labels-logging, *labels-application]
+      !!merge <<: [*labels-logging, *labels-application]
 networks:
   default:
     name: vpp-network
