@@ -33,7 +33,7 @@ Provide this ID when requesting a license from the [Customer Portal](https://cus
 
 Once you have the file, place it at `./secrets/iengine.lic` before running `start.sh`.
 
-The license file must be readable by the user the VPP containers run as (`chmod 644 secrets/iengine.lic`); `start.sh` applies this automatically. A license the containers cannot read shows up as `No license file was found` in the VPP logs.
+The VPP containers run as a non-root user (uid 10001), so the license file must be world-readable (`chmod 644 secrets/iengine.lic`). `start.sh` applies this automatically; a license the containers cannot read shows up as `No license file was found` in the VPP logs.
 
 ## Registry login
 
@@ -83,13 +83,13 @@ bash factory-reset.sh  # stop + wipe all containers, images, and volumes
 
 ### `.env.sfstation` — SmartFace Station
 
-SmartFace Station is the legacy SmartFace admin UI (watchlists, cameras, previews). The VPP release no longer ships it, so it is deployed from this stack for backward compatibility, pointed at the VPP APIs (`api:80`, `graphql-api:80`) and the VPP's SeaweedFS. The Access Controller is not deployed, so `ACCESS_CONTROLLER_ADDRESS` stays empty. `start.sh` sets `S3_PUBLIC_ENDPOINT` to `http://$(hostname):8333` so the browser can open presigned crop URLs; override `SFS_PUBLIC_HOST` before running `start.sh` if the machine is reached under a different name.
+SmartFace Station is the legacy SmartFace admin UI (watchlists, cameras, previews). The VPP release no longer ships it, so it is deployed from this stack for backward compatibility, pointed at the VPP APIs (`api:8080`, `graphql-api:8080`) and the VPP's SeaweedFS. The Access Controller is not deployed, so `ACCESS_CONTROLLER_ADDRESS` stays empty. `start.sh` sets `S3_PUBLIC_ENDPOINT` to `http://$(hostname):8333` so the browser can open presigned crop URLs; override `SFS_PUBLIC_HOST` before running `start.sh` if the machine is reached under a different name.
 
 ### `.env.hub` — Hub wiring
 
 | Group      | Key variables                                                                                                                 |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| VPP source | `VPP_GRAPHQL_HOST` / `VPP_GRAPHQL_PORT` — the VPP GraphQL API (`graphql-api:80` inside the Compose network)                   |
+| VPP source | `VPP_GRAPHQL_HOST` / `VPP_GRAPHQL_PORT` — the VPP GraphQL API (`graphql-api:8080` inside the Compose network)                 |
 | Watchlists | `VPP_ADAPTER_ALLOWED_WATCHLISTS` — watchlist IDs that grant GREEN clearance (comma-separated)                                  |
 | Units      | `HUB_UNITS_0_*` — corridor/e-gate unit definitions with their camera IDs (empty/unset or `*` ⇒ the unit processes all cameras) |
 | Storage    | `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY`                                                          |
@@ -108,9 +108,9 @@ Face crop thumbnails stream through the Hub's in-service image proxy (`/corridor
 | `run.sh`                          | `ensure_milvus_user_provisioned` wait removed                                                          | Follows the Milvus removal                                                 |
 | `sync-embeddings-to-vector-db.sh` | deleted                                                                                                | Needs Milvus                                                               |
 
-`VERSION` in `vpp/.env` is the deployed VPP version. It is pinned to `v5_4.41.0.9996` on purpose: it is the last release whose containers run as root. From `v5_4.41.1` the images run as uid 10001, and the licensing library then computes a hardware ID that differs from the one printed by `license-manager`, so licenses issued for the documented HWID are rejected at startup with `License has different HWID than this machine`. Do not bump `VERSION` until VPP ships a HWID tool that matches its services. All other VPP settings are documented inline in `vpp/.env`; see `vpp/README.md` for the VPP's own helper scripts (template migration after an upgrade, watchlist stream regeneration).
+`VERSION` in `vpp/.env` is the deployed VPP version. All other VPP settings are documented inline in `vpp/.env`; see `vpp/README.md` for the VPP's own helper scripts (template migration after an upgrade, watchlist stream regeneration).
 
-The VPP services are reachable from the corridor services by their Compose service names on the shared `vpp-network` (`graphql-api`, `api`, `rmq`, `seaweedfs`, `pgsql`); the APIs listen on port `80` inside the network.
+The VPP services are reachable from the corridor services by their Compose service names on the shared `vpp-network` (`graphql-api`, `api`, `rmq`, `seaweedfs`, `pgsql`); the APIs listen on port `8080` inside the network.
 
 #### Upgrading the VPP
 

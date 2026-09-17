@@ -41,7 +41,6 @@ echo "Using admin image ${ADMIN_IMAGE}"
 # wait is skipped as well (VectorDB__Provider stays "none" in .env).
 docker compose -f dependencies/docker-compose.yml up -d
 
-
 # stop VPP services (if any are running) before migrating the database
 docker compose down --remove-orphans
 
