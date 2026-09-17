@@ -1,60 +1,93 @@
 # Smart Corridors local addition (not part of the VPP release): docker compose merges this file
 # automatically with docker-compose.yml. The release ships no restart policy, so a service that
 # crashes once (e.g. during the start-up burst) would stay down. Bring every service back up.
+#
+# user "0:0": since v5_4.41.1 the images run as uid 10001, but the HWID computed by the licensing
+# library as non-root differs from the one printed by license-manager (which runs as root), so
+# licenses issued for the documented HWID are rejected ("License has different HWID than this
+# machine"). Running as root restores the pre-4.41.1 behaviour until VPP ships a matching HWID tool.
 services:
   base:
     restart: unless-stopped
+    user: "0:0"
   streamdatadbworker:
     restart: unless-stopped
+    user: "0:0"
   grouping:
     restart: unless-stopped
+    user: "0:0"
   cam-1:
     restart: unless-stopped
+    user: "0:0"
   cam-2:
     restart: unless-stopped
+    user: "0:0"
   cam-3:
     restart: unless-stopped
+    user: "0:0"
   cam-4:
     restart: unless-stopped
+    user: "0:0"
   cam-5:
     restart: unless-stopped
+    user: "0:0"
   cam-nx:
     restart: unless-stopped
+    user: "0:0"
   graphql-api:
     restart: unless-stopped
+    user: "0:0"
   api:
     restart: unless-stopped
+    user: "0:0"
   detector:
     restart: unless-stopped
+    user: "0:0"
   pedestrian-detector:
     restart: unless-stopped
+    user: "0:0"
   extractor:
     restart: unless-stopped
+    user: "0:0"
   matcher:
     restart: unless-stopped
+    user: "0:0"
   face-matcher:
     restart: unless-stopped
+    user: "0:0"
   liveness:
     restart: unless-stopped
+    user: "0:0"
   video-aggregator:
     restart: unless-stopped
+    user: "0:0"
   video-collector:
     restart: unless-stopped
+    user: "0:0"
   video-reader:
     restart: unless-stopped
+    user: "0:0"
   edge-stream-processor:
     restart: unless-stopped
+    user: "0:0"
   edge-streams-state-synchronizer:
     restart: unless-stopped
+    user: "0:0"
   pedestrian-extractor:
     restart: unless-stopped
+    user: "0:0"
   object-detector:
     restart: unless-stopped
+    user: "0:0"
   palm-detector:
     restart: unless-stopped
+    user: "0:0"
   palm-extractor:
     restart: unless-stopped
+    user: "0:0"
   db-synchronization-leader:
     restart: unless-stopped
+    user: "0:0"
   db-synchronization-follower:
     restart: unless-stopped
+    user: "0:0"
