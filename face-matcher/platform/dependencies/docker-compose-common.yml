@@ -1,4 +1,4 @@
 services:
   common:
     labels:
-      application: smartface_dependencies
+      application: face-matcher-dependencies

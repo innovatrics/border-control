@@ -114,7 +114,7 @@ Station wears the Face Matcher brand in every deployment, including one running 
 | `.env`                            | `REGISTRY=registry.dot.innovatrics.com/border-control/vpp/` (release: internal registry)        | Customers pull everything from Harbor                                                 |
 | `.env`                            | `Notifications__IncludeTemplates=true` (release: `false`)                                      | Clients consume face templates from the GraphQL notifications                          |
 | `dependencies/docker-compose.yml` | `milvus`, `milvus-etcd` and `milvus-create-user` removed (and their volumes/configs)           | The vector database is not used (`VectorDB__Provider=none`)                            |
-| `dependencies/docker-compose.yml` | One SeaweedFS data mount; pin RabbitMQ 4.3.6 and permit legacy `queue_master_locator` arguments | Preserve the existing data volume and support Smart Corridors Hub 0.4 on RabbitMQ 4    |
+| `dependencies/docker-compose.yml` | One SeaweedFS data mount; pin RabbitMQ 4.3.6 and permit legacy `queue_master_locator` arguments | Keep the blob storage on a single volume, and support Smart Corridors Hub 0.4 on RabbitMQ 4 |
 | `run.sh`                          | `ensure_milvus_user_provisioned` wait removed                                                  | Follows the Milvus removal                                                             |
 | `sync-embeddings-to-vector-db.sh` | deleted                                                                                        | Needs Milvus                                                                           |
 | `migrate-palms.sh`, `finalize-non-migrated-palms.sh` | deleted                                                     | Follow the palm removal                                                                |
@@ -131,10 +131,10 @@ Services reach each other by their Compose service names on the shared `fm-netwo
 
 ## Names still carrying the old product
 
-The rebrand from SmartFace/VPP to Face Matcher has reached the deployment, not yet the images. Until the rebranded images ship, you will still see the old names in:
+The deployment is fully rebranded. The Compose projects are `face-matcher-platform`, `face-matcher-dependencies` and `face-matcher-station`, the network is `fm-network`, Station's container is `fm-station`, the database is `facematcher` and the blob bucket is `face-matcher`.
 
-- the image paths (`registry.dot.innovatrics.com/border-control/vpp/…`) and the Station image `sf-station`;
-- the Compose project names `vpp` and `vpp-dependencies`;
-- the container name `sf-station` and the database name `smartface`.
+What is left belongs to the images themselves and changes when Innovatrics publishes rebranded ones:
 
-The project names are left alone on purpose: renaming a Compose project orphans the volumes of a running deployment, so that rename belongs with the image rebrand and a documented migration. The Docker network has already been renamed to `fm-network`, which costs nothing because the containers are recreated on every start. Upgrading a deployment leaves the old empty `vpp-network` behind; remove it with `docker network rm vpp-network`.
+- the image paths `registry.dot.innovatrics.com/border-control/vpp/…` and the Station image name `sf-station`;
+- the engine's internal service identifiers `SFBase` and `SFCam1`–`SFCam5`, which the database migration seeds and the images match on;
+- the environment variable names the corridor display and the Hub read, such as `SMARTFACE_GQL_URL` and `VPP_GRAPHQL_HOST`.

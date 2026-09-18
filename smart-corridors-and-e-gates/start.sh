@@ -7,9 +7,7 @@ set -e
 # Station belongs to Face Matcher and keeps the Face Matcher brand here too; only its 1:N
 # Identification page is switched off, because the corridor dashboard is the operator surface.
 export STATION_IDENTIFICATION=false
-# SFS_PUBLIC_HOST was this variable's name before Station moved into the Face Matcher module;
-# it is still honoured so existing site scripts keep working.
-export STATION_PUBLIC_HOST="${STATION_PUBLIC_HOST:-${SFS_PUBLIC_HOST:-$(hostname)}}"
+export STATION_PUBLIC_HOST="${STATION_PUBLIC_HOST:-$(hostname)}"
 
 (cd ../face-matcher && bash start.sh)
 

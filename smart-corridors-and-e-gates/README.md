@@ -169,11 +169,3 @@ untrusted network.
 > Docker socket. If you are upgrading, back up the calibration and recordings, then remove
 > the old containers first:
 > `docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct down --remove-orphans`.
-
-## Upgrading from the pre-Face-Matcher layout
-
-Earlier versions of this repository kept the platform in `smart-corridors-and-e-gates/vpp/`, Station in this module's Compose file and the license in `smart-corridors-and-e-gates/secrets/`. All three moved. Nothing is lost: the Compose project names (`vpp`, `vpp-dependencies`) and therefore the database, RabbitMQ and SeaweedFS volumes are unchanged.
-
-`start.sh` handles the two things that would otherwise break on the first run after the upgrade: it moves your `iengine.lic` up to `../secrets/`, and it removes the `sf-station` container the old project left behind so the Face Matcher module can recreate it.
-
-Two leftovers are harmless and yours to clear when convenient. `smart-corridors-and-e-gates/vpp/` stays on disk holding only the old license symlink. The Docker network is now `fm-network`, so the empty `vpp-network` stays behind until you run `docker network rm vpp-network`.

@@ -1,10 +1,12 @@
 # Face Matcher Station — the UI half of the module. The engine is platform/, brought up by
 # start.sh before this file. Station joins the same fm-network, so it reaches the platform
 # APIs by service name (api:8080, graphql-api:8080) and its storage at seaweedfs:8333.
+name: face-matcher-station
+
 services:
-  sf-station:
+  station:
     image: ${REGISTRY}sf-station:${STATION_VERSION}
-    container_name: sf-station
+    container_name: fm-station
     restart: unless-stopped
     ports:
       - "${STATION_PORT:-8000}:8000"

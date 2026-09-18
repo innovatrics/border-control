@@ -1,4 +1,4 @@
-name: vpp
+name: face-matcher-platform
 x-common: &common
   ulimits:
     nofile:
@@ -108,7 +108,7 @@ x-labels-logging: &labels-logging
 x-labels-metrics: &labels-metrics
   scrapeMetrics: "true"
 x-labels-application: &labels-application
-  application: "smartface"
+  application: "face-matcher"
 services:
   base:
     image: ${REGISTRY}base:${VERSION}

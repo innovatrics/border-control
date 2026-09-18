@@ -1,3 +1,5 @@
+name: smart-corridors-and-e-gates
+
 services:
   hub:
     image: ${REGISTRY}corridor-hub:${HUB_VERSION}
@@ -82,7 +84,7 @@ services:
       # so this is an in-network container URL like the two above. Station belongs to the Face
       # Matcher module and joins the same fm-network, published on :8000. Unset ⇒ Cameras
       # panel shows "unavailable".
-      SMARTFACE_STATION_URL: http://sf-station:8000
+      SMARTFACE_STATION_URL: http://fm-station:8000
     # Fail-closed operational_display license gate: the frontend serves a "not licensed"
     # page unless the mounted iengine.lic carries a valid smart_corridor.operational_display block
     # (same universal iengine.lic as the hub and CIGS).

@@ -7,13 +7,6 @@ set -e
 # STATION_PUBLIC_HOST to adjust Station before it starts.
 
 # One license file serves both modules, so it lives at the repository root.
-# Upgrade path: it used to live in smart-corridors-and-e-gates/secrets/.
-if [ ! -f ../secrets/iengine.lic ] && [ -f ../smart-corridors-and-e-gates/secrets/iengine.lic ]; then
-  echo "Moving iengine.lic to secrets/ at the repository root, where both modules read it."
-  mkdir -p ../secrets
-  mv ../smart-corridors-and-e-gates/secrets/iengine.lic ../secrets/iengine.lic
-fi
-
 if [ ! -f ../secrets/iengine.lic ]; then
   echo "ERROR: no iengine.lic in secrets/ at the repository root. Obtain a license (see README.md) and place it there." >&2
   exit 1
@@ -29,16 +22,6 @@ chmod a+r ./platform/iengine.lic
 
 # Station hands the browser presigned S3 URLs; they must point at this host, not at "seaweedfs".
 export STATION_PUBLIC_HOST="${STATION_PUBLIC_HOST:-$(hostname)}"
-
-# Upgrade path: Station used to belong to the smart-corridors-and-e-gates compose project.
-# Compose refuses to create a container whose name another project already holds.
-stale="$(docker ps -aq \
-  --filter 'name=^/sf-station$' \
-  --filter 'label=com.docker.compose.project=smart-corridors-and-e-gates')"
-if [ -n "$stale" ]; then
-  echo "Removing the sf-station container left over from the smart-corridors-and-e-gates project."
-  docker rm -f "$stale" >/dev/null
-fi
 
 # platform/run.sh recreates its API containers, so recreate Station too: its configuration is
 # resolved at startup and would otherwise keep pointing at the previous container addresses.

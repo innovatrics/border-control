@@ -1,4 +1,4 @@
-name: vpp-dependencies
+name: face-matcher-dependencies
 services:
   pgsql:
     extends:
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=smartface
+      - POSTGRES_DB=facematcher
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=Test1234
     restart: unless-stopped
@@ -117,7 +117,7 @@ configs:
       {
         "Servers": {
           "1": {
-            "Name": "smartface",
+            "Name": "Face Matcher",
             "Group": "Servers",
             "Host": "pgsql",
             "Port": 5432,
