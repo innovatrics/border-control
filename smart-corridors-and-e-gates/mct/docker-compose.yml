@@ -27,7 +27,7 @@
 # reads the stack's `rmq` directly. The wedge appears to have been a consequence of that extra
 # broker rather than of the tracker: it ran RabbitMQ's default 30-minute consumer_timeout, which
 # force-closes a consumer that stalls on one message, while the stack's own `rmq` is configured
-# for 6 hours (vpp/dependencies/docker-compose.yml). Reading from `rmq` inherits that, so
+# for 6 hours (../../face-matcher/platform/dependencies/docker-compose.yml). Reading from `rmq` inherits that, so
 # there is nothing left for a watchdog to recover from — and no reason to hand a container the
 # Docker socket.
 

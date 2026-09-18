@@ -36,7 +36,7 @@ ADMIN_IMAGE="${REGISTRY}admin:${VERSION}"
 echo "Using admin image ${ADMIN_IMAGE}"
 
 # start the dependencies (database, RabbitMQ, S3 storage)
-# Smart Corridors: the Milvus vector database bundled with the release is not used here. It was
+# Face Matcher: the Milvus vector database bundled with the release is not used here. It was
 # removed from dependencies/docker-compose.yml, so the release's ensure_milvus_user_provisioned
 # wait is skipped as well (VectorDB__Provider stays "none" in .env).
 docker compose -f dependencies/docker-compose.yml up -d

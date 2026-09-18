@@ -1,0 +1,33 @@
+# Face Matcher Station — the UI half of the module. The engine is platform/, brought up by
+# start.sh before this file. Station joins the same vpp-network, so it reaches the platform
+# APIs by service name (api:8080, graphql-api:8080) and its storage at seaweedfs:8333.
+services:
+  sf-station:
+    image: ${REGISTRY}sf-station:${STATION_VERSION}
+    container_name: sf-station
+    restart: unless-stopped
+    ports:
+      - "${STATION_PORT:-8000}:8000"
+    env_file:
+      - ./.env.station
+    environment:
+      # Host name the browser uses to reach the S3 storage: Station hands out presigned crop
+      # URLs, which must point at this host rather than at the in-network "seaweedfs".
+      # start.sh exports STATION_PUBLIC_HOST.
+      S3_PUBLIC_ENDPOINT: http://${STATION_PUBLIC_HOST:-localhost}:8333
+      IDENTIFICATION_ENABLED: "${STATION_IDENTIFICATION:-true}"
+    volumes:
+      - ../secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+      # Station inlines these brand assets at startup. STATION_BRANDING lets a stack built on
+      # Face Matcher substitute its own without a second copy of this file.
+      - ${STATION_BRANDING:-./branding/station}/logo-product.svg:/build/branding/logo-product.svg:ro
+      - ${STATION_BRANDING:-./branding/station}/logo-product-without-text.svg:/build/branding/logo-product-without-text.svg:ro
+      - ${STATION_BRANDING:-./branding/station}/favicon-product.ico:/build/branding/favicon-product.ico:ro
+      - ${STATION_BRANDING:-./branding/station}/naming-product.json:/build/branding/naming-product.json:ro
+
+networks:
+  default:
+    # Created by platform/run.sh. Still named after VPP; renaming it is deferred to the
+    # image rebrand so running deployments are not forced onto a new network mid-upgrade.
+    name: vpp-network
+    external: true
