@@ -37,7 +37,7 @@ Provide this ID when requesting a license from the [Customer Portal](https://cus
 
 Once you have the file, place it at `./secrets/iengine.lic` before running `start.sh`.
 
-The VPP containers run as a non-root user (uid 10001), so the license file must be world-readable (`chmod 644 secrets/iengine.lic`). `start.sh` applies this automatically; a license the containers cannot read shows up as `No license file was found` in the VPP logs.
+The license file must be readable by the user the VPP containers run as (`chmod 644 secrets/iengine.lic`); `start.sh` applies this automatically. A license the containers cannot read shows up as `No license file was found` in the VPP logs. Note that the VPP services are deliberately run as root (see the `vpp/` section below); without that, VPP v5_4.41.1 and newer reject the license with `License has different HWID than this machine`.
 
 ## Registry login
 
@@ -113,6 +113,7 @@ Face crop thumbnails stream through the Hub's in-service image proxy (`/corridor
 | `dependencies/docker-compose.yml` | One SeaweedFS data mount; pin RabbitMQ 4.3.6 and permit legacy `queue_master_locator` arguments | Preserve the existing data volume and support Hub 0.4 on RabbitMQ 4 |
 | `run.sh`                          | `ensure_milvus_user_provisioned` wait removed                                                          | Follows the Milvus removal                                                 |
 | `sync-embeddings-to-vector-db.sh` | deleted                                                                                                | Needs Milvus                                                               |
+| `docker-compose.override.yml`     | Added (not in the release): `restart: unless-stopped` and `user: root` on every service               | The release ships no restart policy; and as uid 10001 the licensing library cannot read the root-only hardware identifiers, so it derives a different HWID and rejects licenses issued for the HWID printed by `license-manager` (`License has different HWID than this machine`, confirmed by the VPP team). Remove `user: root` once VPP licensing works for uid 10001. |
 
 `VERSION` in `vpp/.env` is the deployed VPP version. All other VPP settings are documented inline in `vpp/.env`; see `vpp/README.md` for the VPP's own helper scripts (template migration after an upgrade, watchlist stream regeneration).
 

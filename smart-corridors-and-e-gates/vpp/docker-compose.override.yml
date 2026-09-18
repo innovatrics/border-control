@@ -1,60 +1,94 @@
 # Smart Corridors local addition (not part of the VPP release): docker compose merges this file
 # automatically with docker-compose.yml. The release ships no restart policy, so a service that
 # crashes once (e.g. during the start-up burst) would stay down. Bring every service back up.
+#
+# user: root — since v5_4.41.1 the images run as uid 10001, but the licensing library reads
+# hardware identifiers that only root can access, so as non-root it derives a different HWID and
+# rejects licenses issued for the HWID printed by license-manager ("License has different HWID than
+# this machine"). Confirmed by the VPP team. Running as root restores the pre-4.41.1 behaviour at the
+# cost of the non-root hardening; remove once VPP licensing works for uid 10001.
 services:
   base:
     restart: unless-stopped
+    user: root
   streamdatadbworker:
     restart: unless-stopped
+    user: root
   grouping:
     restart: unless-stopped
+    user: root
   cam-1:
     restart: unless-stopped
+    user: root
   cam-2:
     restart: unless-stopped
+    user: root
   cam-3:
     restart: unless-stopped
+    user: root
   cam-4:
     restart: unless-stopped
+    user: root
   cam-5:
     restart: unless-stopped
+    user: root
   cam-nx:
     restart: unless-stopped
+    user: root
   graphql-api:
     restart: unless-stopped
+    user: root
   api:
     restart: unless-stopped
+    user: root
   detector:
     restart: unless-stopped
+    user: root
   pedestrian-detector:
     restart: unless-stopped
+    user: root
   extractor:
     restart: unless-stopped
+    user: root
   matcher:
     restart: unless-stopped
+    user: root
   face-matcher:
     restart: unless-stopped
+    user: root
   liveness:
     restart: unless-stopped
+    user: root
   video-aggregator:
     restart: unless-stopped
+    user: root
   video-collector:
     restart: unless-stopped
+    user: root
   video-reader:
     restart: unless-stopped
+    user: root
   edge-stream-processor:
     restart: unless-stopped
+    user: root
   edge-streams-state-synchronizer:
     restart: unless-stopped
+    user: root
   pedestrian-extractor:
     restart: unless-stopped
+    user: root
   object-detector:
     restart: unless-stopped
+    user: root
   palm-detector:
     restart: unless-stopped
+    user: root
   palm-extractor:
     restart: unless-stopped
+    user: root
   db-synchronization-leader:
     restart: unless-stopped
+    user: root
   db-synchronization-follower:
     restart: unless-stopped
+    user: root
