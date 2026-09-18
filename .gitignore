@@ -8,6 +8,3 @@ face-matcher/platform/iengine.lic
 # macOS
 .DS_Store
 __MACOSX/
-
-# Python validation cache
-__pycache__/

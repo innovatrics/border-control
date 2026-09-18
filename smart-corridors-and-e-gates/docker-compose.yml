@@ -80,7 +80,7 @@ services:
       # SmartFace Station powers the live camera preview (operational-display 0.5.0). The
       # frontend's nginx proxies the SPA's /smartface-video/<cameraId> WS to Station's /-/video bridge,
       # so this is an in-network container URL like the two above. Station belongs to the Face
-      # Matcher module and joins the same vpp-network, published on :8000. Unset ⇒ Cameras
+      # Matcher module and joins the same fm-network, published on :8000. Unset ⇒ Cameras
       # panel shows "unavailable".
       SMARTFACE_STATION_URL: http://sf-station:8000
     # Fail-closed operational_display license gate: the frontend serves a "not licensed"
@@ -103,5 +103,5 @@ services:
 
 networks:
   default:
-    name: vpp-network
+    name: fm-network
     external: true

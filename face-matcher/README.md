@@ -91,7 +91,6 @@ Pedestrian detection, generic object detection, edge-stream processing and datab
 | `REGISTRY`               | Registry prefix for the Station image                                              |
 | `STATION_VERSION`        | Station image tag                                                                  |
 | `STATION_PORT`           | Station host port (default `8000`)                                                 |
-| `STATION_BRANDING`       | Folder holding the brand assets mounted into Station (default `./branding/station`) |
 | `STATION_IDENTIFICATION` | Station's 1:N Identification page (default `true`)                                 |
 
 ### `.env.station` — Station
@@ -100,7 +99,9 @@ Station's own settings: the platform API addresses (`api:8080`, `graphql-api:808
 
 ### `branding/station/` — brand assets
 
-Station inlines `logo-product.svg`, `logo-product-without-text.svg`, `favicon-product.ico` and `naming-product.json` at startup. The logo and favicon here are typographic placeholders carrying the product name; swap them for the final brand assets without touching the deployment. A module built on Face Matcher points `STATION_BRANDING` at its own folder instead.
+Station inlines `logo-product.svg`, `logo-product-without-text.svg`, `favicon-product.ico` and `naming-product.json` at startup. The logo and favicon here are typographic placeholders carrying the product name; swap them for the final brand assets without touching the deployment.
+
+Station wears the Face Matcher brand in every deployment, including one running underneath Smart Corridors & e-Gates. Station is the Face Matcher operator UI, so it says so wherever it runs.
 
 ### `platform/` — the platform
 
@@ -119,7 +120,7 @@ Station inlines `logo-product.svg`, `logo-product-without-text.svg`, `favicon-pr
 | `migrate-palms.sh`, `finalize-non-migrated-palms.sh` | deleted                                                     | Follow the palm removal                                                                |
 | `docker-compose.override.yml`     | Added (not in the release): `restart: unless-stopped` on every service and `user: root` on the 17 that load a biometric engine or match templates (all but `graphql-api`, `streamdatadbworker`, `edge-streams-state-synchronizer` and the `db-synchronization-*` pair) | The release ships no restart policy; and as uid 10001 the licensing library cannot read the root-only hardware identifiers, so it derives a different HWID and rejects licenses issued for the HWID printed by `license-manager` (`License has different HWID than this machine`, confirmed by the platform team). Remove `user: root` once licensing works for uid 10001. |
 
-Services reach each other by their Compose service names on the shared `vpp-network` (`graphql-api`, `api`, `rmq`, `seaweedfs`, `pgsql`); the APIs listen on port `8080` inside the network.
+Services reach each other by their Compose service names on the shared `fm-network` (`graphql-api`, `api`, `rmq`, `seaweedfs`, `pgsql`); the APIs listen on port `8080` inside the network.
 
 #### Upgrading the platform
 
@@ -133,11 +134,7 @@ Services reach each other by their Compose service names on the shared `vpp-netw
 The rebrand from SmartFace/VPP to Face Matcher has reached the deployment, not yet the images. Until the rebranded images ship, you will still see the old names in:
 
 - the image paths (`registry.dot.innovatrics.com/border-control/vpp/…`) and the Station image `sf-station`;
-- the Docker network `vpp-network` and the Compose project names `vpp` and `vpp-dependencies`;
+- the Compose project names `vpp` and `vpp-dependencies`;
 - the container name `sf-station` and the database name `smartface`.
 
-They are left alone on purpose: renaming a Compose project orphans the volumes of a running deployment, so the rename belongs with the image rebrand and a documented migration.
-
-## Validation
-
-Run `python3 -m unittest discover -s tests -v` from the repository root. See the [root README](../README.md#validation).
+The project names are left alone on purpose: renaming a Compose project orphans the volumes of a running deployment, so that rename belongs with the image rebrand and a documented migration. The Docker network has already been renamed to `fm-network`, which costs nothing because the containers are recreated on every start. Upgrading a deployment leaves the old empty `vpp-network` behind; remove it with `docker network rm vpp-network`.

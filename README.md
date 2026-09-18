@@ -9,7 +9,7 @@ Multi-module repository. Each folder below is a module: a runnable Docker Compos
 
 ## How they fit together
 
-Face Matcher is the base module. It owns the face pipeline, the database, the message broker, the blob storage and the shared `vpp-network` that everything else joins.
+Face Matcher is the base module. It owns the face pipeline, the database, the message broker, the blob storage and the shared `fm-network` that everything else joins.
 
 Smart Corridors & e-Gates adds the corridor services on top and starts Face Matcher for you, so its quick start is the only one you need to follow if corridors are what you are deploying. Running the two modules side by side on one host is not a thing: the second one is already inside the first.
 
@@ -27,7 +27,3 @@ secrets/                       one iengine.lic for the machine
 4. Run the start script of the module you want: `face-matcher/start.sh`, or `smart-corridors-and-e-gates/start.sh` for the full corridor stack.
 
 Licensing, registry access and the per-module configuration are documented in [`face-matcher/README.md`](face-matcher/README.md) and [`smart-corridors-and-e-gates/README.md`](smart-corridors-and-e-gates/README.md).
-
-## Validation
-
-Run `python3 -m unittest discover -s tests -v` from the repository root. The checks validate the Compose wiring, license mounts, module layering and shell syntax of both modules. They need Docker Compose but no registry access, no license and no running containers. GitHub Actions runs them on each pull request.

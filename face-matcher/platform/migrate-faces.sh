@@ -44,7 +44,7 @@ do
     --env RabbitMQ__Password="$(getvalue RabbitMQ__Password)" \
     --env RabbitMQ__Port="$(getvalue RabbitMQ__Port)" \
     --volume "$(pwd)/iengine.lic:/etc/innovatrics/iengine.lic" \
-    --network vpp-network \
+    --network fm-network \
     "${DETECTOR_IMAGE}"
 done
 
@@ -58,7 +58,7 @@ do
     --env RabbitMQ__Password="$(getvalue RabbitMQ__Password)" \
     --env RabbitMQ__Port="$(getvalue RabbitMQ__Port)" \
     --volume "$(pwd)/iengine.lic:/etc/innovatrics/iengine.lic" \
-    --network vpp-network \
+    --network fm-network \
     "${EXTRACTOR_IMAGE}"
 done
 
@@ -66,7 +66,7 @@ echo "Calling migrate-faces command to migrate faces"
 
 docker run --rm --name sf_admin \
   --volume "$(pwd)/iengine.lic:/etc/innovatrics/iengine.lic" \
-  --network vpp-network \
+  --network fm-network \
   "${ADMIN_IMAGE}" \
   migrate-faces \
   -c "$(getvalue ConnectionStrings__CoreDbContext)" \
@@ -93,7 +93,7 @@ echo "Calling set-state-error-non-migrated-faces command with dry-run to see wha
 
 docker run --rm --name sf_admin \
     --volume "$(pwd)/iengine.lic:/etc/innovatrics/iengine.lic" \
-    --network vpp-network \
+    --network fm-network \
     "${ADMIN_IMAGE}" \
     set-state-error-non-migrated-faces \
     -c "$(getvalue ConnectionStrings__CoreDbContext)" \

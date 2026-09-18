@@ -4,9 +4,8 @@ set -e
 # Starts Face Matcher (the base module: platform + Station) and then the corridor services.
 # MCT is a separate overlay and is never started here — see README.md.
 
-# Station is Face Matcher's, but in a corridor deployment it wears the Smart Corridors brand
-# and leaves the 1:N Identification page off; the corridor dashboard is the operator surface.
-export STATION_BRANDING=../smart-corridors-and-e-gates/branding/station
+# Station belongs to Face Matcher and keeps the Face Matcher brand here too; only its 1:N
+# Identification page is switched off, because the corridor dashboard is the operator surface.
 export STATION_IDENTIFICATION=false
 # SFS_PUBLIC_HOST was this variable's name before Station moved into the Face Matcher module;
 # it is still honoured so existing site scripts keep working.
@@ -17,7 +16,7 @@ export STATION_PUBLIC_HOST="${STATION_PUBLIC_HOST:-${SFS_PUBLIC_HOST:-$(hostname
 # Create the Hub's crop bucket on the platform's S3 storage (SeaweedFS) with its admin tool.
 PLATFORM=../face-matcher/platform
 getvalue() { grep -E "^$1=" "$PLATFORM/.env" | head -n1 | cut -d '=' -f2- | sed -E -e 's/\r$//' -e 's/[[:space:]]+#.*$//' -e 's/[[:space:]]+$//'; }
-docker run --rm --network vpp-network "$(getvalue REGISTRY)admin:$(getvalue VERSION)" \
+docker run --rm --network fm-network "$(getvalue REGISTRY)admin:$(getvalue VERSION)" \
   ensure-s3-bucket-exists \
     --endpoint "$(getvalue S3Bucket__Endpoint)" --access-key "$(getvalue S3Bucket__AccessKey)" \
     --secret-key "$(getvalue S3Bucket__SecretKey)" --bucket-name corridor-hub

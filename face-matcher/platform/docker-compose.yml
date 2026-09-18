@@ -463,5 +463,5 @@ services:
       <<: [*labels-logging, *labels-application]
 networks:
   default:
-    name: vpp-network
+    name: fm-network
     external: true

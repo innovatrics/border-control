@@ -68,9 +68,9 @@ The corridor services, plus the Face Matcher endpoints underneath them:
 
 The platform version and the Station version live in the Face Matcher module: `../face-matcher/platform/.env` and `../face-matcher/.env`.
 
-### `branding/station/` — Station in corridor colours
+### Station
 
-Station belongs to Face Matcher, but in a corridor deployment it wears the Smart Corridors brand. `start.sh` exports `STATION_BRANDING=../smart-corridors-and-e-gates/branding/station` so Face Matcher mounts these assets instead of its own, and `STATION_IDENTIFICATION=false` to leave Station's 1:N Identification page off — the corridor dashboard is the operator surface here.
+Station comes from the Face Matcher module and keeps the Face Matcher brand here: it is the Face Matcher operator UI wherever it runs. The one thing `start.sh` changes is `STATION_IDENTIFICATION=false`, which leaves Station's 1:N Identification page off, because the corridor dashboard is the operator surface in this deployment.
 
 ### `.env.hub` — Hub wiring
 
@@ -116,13 +116,13 @@ MCT, and the base stack needs no calibration data.
 
 ```bash
 # database schema — also after raising MCT_TAG
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile migrate run --rm dbMigrator
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile migrate run --rm dbMigrator
 
 # load the calibration model from mct/models_data — skip if you import via Swagger instead
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile seed run --rm configApiSeeder
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile seed run --rm configApiSeeder
 
 # the overlay itself
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct up -d
 ```
 
 Re-running the `seed` profile **overwrites** the model in the database, so leave it out of routine
@@ -132,7 +132,7 @@ MCT is a separate Compose project (`sceg-mct`), so `start.sh` never starts it an
 `factory-reset.sh` never stop it. Stop it explicitly (retaining calibration and recordings):
 
 ```bash
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct down
 ```
 
 Add `-v` only for a factory reset: it deletes the calibration database, recordings and snapshots.
@@ -148,7 +148,7 @@ Add `-v` only for a factory reset: it deletes the calibration database, recordin
 The track stream lands on the stack's shared RabbitMQ as protobuf
 (`fanout://mct_tracker.tracking_updates/` + `fanout://position.message/`); the Hub consumes it
 directly when `ZONE_MCT_ENABLED=true` (see `.env.hub`). Images are the released MCT suite mirrored
-to Harbor, pinned by a single `MCT_TAG` in `.env.mct`.
+to Harbor, pinned by a single `MCT_TAG` in `mct/.env.mct`.
 
 **Is it tracking?** The visualizer is the quickest answer — dots moving on the floor plan. Per-frame
 ingest lines in `docker logs mct-tracker` are DEBUG only, so at the default `INFO` level a healthy
@@ -163,19 +163,17 @@ untrusted network.
 > into it, and a watchdog that mounted the Docker socket to restart a tracker that occasionally
 > wedged. None of the three is here any more. The tracker build of the time required MQTT 5, which
 > the former RabbitMQ 3.12 base broker could not parse. The current base stack uses RabbitMQ 4;
-> the released tracker speaks MQTT 3.1.1 and reads that shared `rmq` directly on `vpp-network`.
+> the released tracker speaks MQTT 3.1.1 and reads that shared `rmq` directly on `fm-network`.
 > The wedge itself looks to have been a side effect of that extra broker — it ran RabbitMQ's default 30-minute `consumer_timeout`, whereas the stack's
 > own `rmq` is configured for 6 hours. Six containers instead of eight, and nothing holding the
 > Docker socket. If you are upgrading, back up the calibration and recordings, then remove
 > the old containers first:
-> `docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down --remove-orphans`.
+> `docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct down --remove-orphans`.
 
 ## Upgrading from the pre-Face-Matcher layout
 
 Earlier versions of this repository kept the platform in `smart-corridors-and-e-gates/vpp/`, Station in this module's Compose file and the license in `smart-corridors-and-e-gates/secrets/`. All three moved. Nothing is lost: the Compose project names (`vpp`, `vpp-dependencies`) and therefore the database, RabbitMQ and SeaweedFS volumes are unchanged.
 
-`start.sh` handles the two things that would otherwise break on the first run after the upgrade: it moves your `iengine.lic` up to `../secrets/`, and it removes the `sf-station` container the old project left behind so the Face Matcher module can recreate it. After the upgrade, `smart-corridors-and-e-gates/vpp/` is left on disk holding only the old license symlink; delete it when convenient.
+`start.sh` handles the two things that would otherwise break on the first run after the upgrade: it moves your `iengine.lic` up to `../secrets/`, and it removes the `sf-station` container the old project left behind so the Face Matcher module can recreate it.
 
-## Validation
-
-Run `python3 -m unittest discover -s tests -v` from the repository root. See the [root README](../README.md#validation). Runtime validation additionally requires the licensed images and a site calibration plus an SFE detection feed for MCT.
+Two leftovers are harmless and yours to clear when convenient. `smart-corridors-and-e-gates/vpp/` stays on disk holding only the old license symlink. The Docker network is now `fm-network`, so the empty `vpp-network` stays behind until you run `docker network rm vpp-network`.

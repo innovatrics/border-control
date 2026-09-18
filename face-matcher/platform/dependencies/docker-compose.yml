@@ -99,7 +99,7 @@ volumes:
   seaweedfsdata:
 networks:
   default:
-    name: vpp-network
+    name: fm-network
     external: true
 configs:
   rabbitmq_config:

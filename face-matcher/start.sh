@@ -3,8 +3,8 @@ set -e
 
 # Brings up Face Matcher: the platform (dependencies, database migration, S3 bucket, engine
 # services) and then Station. Stacks that build on Face Matcher call this script first and
-# add their own services afterwards; they may export STATION_BRANDING,
-# STATION_IDENTIFICATION and STATION_PUBLIC_HOST to adjust Station before it starts.
+# add their own services afterwards; they may export STATION_IDENTIFICATION and
+# STATION_PUBLIC_HOST to adjust Station before it starts.
 
 # One license file serves both modules, so it lives at the repository root.
 # Upgrade path: it used to live in smart-corridors-and-e-gates/secrets/.
