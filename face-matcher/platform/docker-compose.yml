@@ -1,4 +1,4 @@
-name: vpp
+name: face-matcher-platform
 x-common: &common
   ulimits:
     nofile:
@@ -108,7 +108,7 @@ x-labels-logging: &labels-logging
 x-labels-metrics: &labels-metrics
   scrapeMetrics: "true"
 x-labels-application: &labels-application
-  application: "smartface"
+  application: "face-matcher"
 services:
   base:
     image: ${REGISTRY}base:${VERSION}
@@ -135,18 +135,6 @@ services:
       StreamDataConsumer__BatchSize:
     labels:
       <<: [*labels-logging, *labels-application]
-    expose:
-      - 4318
-  grouping:
-    image: ${REGISTRY}grouping:${VERSION}
-    <<: *common
-    environment:
-      <<: [*common-env, *db-env, *otel-metrics-prometheus-env, *tracing-env, *iface-env, *metrics-bands-env]
-      Grouping__TemplateQualityThreshold:
-      LiveGrouping__UpdateTimeMs:
-      LiveGrouping__DelayOffsetMs:
-    labels:
-      <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
   cam-1:
@@ -383,39 +371,6 @@ services:
       <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-  video-aggregator:
-    image: ${REGISTRY}video-aggregator:${VERSION}
-    <<: *common
-    environment:
-      <<: [*common-env, *db-env, *s3-env]
-      Rpc__TimeoutMs:
-      NoSqlDataStorageDisabled:
-      Aggregation__AggregationSimilarityThreshold:
-      Aggregation__TrackletAggregationPeriodMs:
-      Aggregation__MatchRequestParallelism:
-      Aggregation__Export:
-      Aggregation__EntityNotificationsEnabled:
-    labels:
-      <<: [*labels-logging, *labels-application]
-  video-collector:
-    image: ${REGISTRY}video-collector:${VERSION}
-    <<: *common
-    environment:
-      <<: [*common-env, *db-env, *s3-env]
-      NoSqlDataStorageDisabled:
-      VideoRecordCollecting__BatchSize:
-      S3ClientLifetime__S3ClientLifetime:
-    labels:
-      <<: [*labels-logging, *labels-application]
-  video-reader:
-    image: ${REGISTRY}video-reader:${VERSION}
-    <<: *common
-    environment:
-      <<: [*common-env, *s3-env, *otel-metrics-prometheus-env, *tracing-env]
-      ActivityMonitor__WarningTimeMinutes:
-      ActivityMonitor__ErrorTimeMinutes:
-    labels:
-      <<: [*labels-logging, *labels-application]
   edge-stream-processor:
     image: ${REGISTRY}edge-stream-processor:${VERSION}
     <<: *common
@@ -474,30 +429,6 @@ services:
       <<: [*labels-logging, *labels-metrics, *labels-application]
     expose:
       - 4318
-  palm-detector:
-    image: ${REGISTRY}palm-detector:${VERSION}
-    <<: *common
-    environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
-      # palm-detector needs SolverIntraThreads=4; the .env default (1) only applies to InterThreads.
-      OnnxRuntimeConfiguration__SolverIntraThreads: 4
-      Warmup__LivenessEnabled:
-      Detection__SolverName:
-    labels:
-      <<: [*labels-logging, *labels-metrics]
-    expose:
-      - 4318
-  palm-extractor:
-    image: ${REGISTRY}palm-extractor:${VERSION}
-    <<: *common
-    environment:
-      <<: [*common-env, *otel-metrics-prometheus-env, *tracing-env, *onnx-env, *metrics-bands-env]
-      # palm-extractor needs SolverIntraThreads=4; the .env default (1) only applies to InterThreads.
-      OnnxRuntimeConfiguration__SolverIntraThreads: 4
-    labels:
-      <<: [*labels-logging, *labels-metrics]
-    expose:
-      - 4318
   db-synchronization-leader:
     image: ${REGISTRY}db-synchronization-leader:${VERSION}
     <<: *common
@@ -532,5 +463,5 @@ services:
       <<: [*labels-logging, *labels-application]
 networks:
   default:
-    name: vpp-network
+    name: fm-network
     external: true

@@ -6,17 +6,17 @@
 # floor plan.
 #
 # PREREQUISITES (see the MCT section of ../README.md):
-#   * the base stack is up (start.sh) — MCT joins its `vpp-network` and reads its `rmq`,
+#   * the base stack is up (start.sh) — MCT joins its `fm-network` and reads its `rmq`,
 #   * a per-camera detection feed from SmartFace Embedded Stream Processor cameras, delivered into
 #     that `rmq` over MQTT as edge-stream/<clientId>/frame_data,
 #   * a calibration model for your cameras, loaded into the Config API (MCT_MODEL).
 #
 # Bring-up — the two profiles are one-time setup, the third line is the stack itself:
-#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile migrate run --rm dbMigrator
-#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile seed run --rm configApiSeeder
-#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile migrate run --rm dbMigrator
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile seed run --rm configApiSeeder
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct up -d
 # Teardown (keeps the base stack untouched):
-#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down
+#   docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct down
 #
 # WHAT CHANGED FROM THE PREVIOUS VERSION OF THIS OVERLAY
 # It used to ship a second broker (RabbitMQ 4), a proxy to shuttle frames from the stack's broker
@@ -27,7 +27,7 @@
 # reads the stack's `rmq` directly. The wedge appears to have been a consequence of that extra
 # broker rather than of the tracker: it ran RabbitMQ's default 30-minute consumer_timeout, which
 # force-closes a consumer that stalls on one message, while the stack's own `rmq` is configured
-# for 6 hours (vpp/dependencies/docker-compose.yml). Reading from `rmq` inherits that, so
+# for 6 hours (../../face-matcher/platform/dependencies/docker-compose.yml). Reading from `rmq` inherits that, so
 # there is nothing left for a watchdog to recover from — and no reason to hand a container the
 # Docker socket.
 
@@ -271,5 +271,5 @@ volumes:
 
 networks:
   default:
-    name: vpp-network
+    name: fm-network
     external: true

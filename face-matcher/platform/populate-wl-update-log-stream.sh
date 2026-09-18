@@ -19,7 +19,7 @@ ADMIN_IMAGE="${REGISTRY}admin:${VERSION}"
 echo "Calling populate-wl-update-log-stream command to rebuild the watchlist update-log stream from the database"
 
 docker run --rm --name sf_admin \
-  --network vpp-network \
+  --network fm-network \
   "${ADMIN_IMAGE}" \
   populate-wl-update-log-stream \
   -c "$(getvalue ConnectionStrings__CoreDbContext)" \

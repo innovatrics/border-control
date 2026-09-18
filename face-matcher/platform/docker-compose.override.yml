@@ -1,12 +1,14 @@
-# Smart Corridors local addition (not part of the VPP release): docker compose merges this file
+# Face Matcher local addition (not part of the VPP release): docker compose merges this file
 # automatically with docker-compose.yml. The release ships no restart policy, so a service that
 # crashes once (e.g. during the start-up burst) would stay down. Bring every service back up.
 #
 # user: root — since v5_4.41.1 the images run as uid 10001, but the licensing library reads
 # hardware identifiers that only root can access, so as non-root it derives a different HWID and
 # rejects licenses issued for the HWID printed by license-manager ("License has different HWID than
-# this machine"). Confirmed by the VPP team. Applied to the 21 services that load a biometric engine
-# or match templates; verified empirically on v5_4.43.0.10149 (the other 7 run fine as uid 10001).
+# this machine"). Confirmed by the VPP team. Applied to the 17 services that load a biometric
+# engine or match templates; verified empirically on v5_4.43.0.10149 (graphql-api,
+# streamdatadbworker, edge-streams-state-synchronizer and the db-synchronization leader/follower
+# run fine as uid 10001 and keep the hardening).
 # Remove once VPP licensing works for uid 10001.
 services:
   base:
@@ -14,9 +16,6 @@ services:
     user: root
   streamdatadbworker:
     restart: unless-stopped
-  grouping:
-    restart: unless-stopped
-    user: root
   cam-1:
     restart: unless-stopped
     user: root
@@ -58,13 +57,6 @@ services:
   liveness:
     restart: unless-stopped
     user: root
-  video-aggregator:
-    restart: unless-stopped
-    user: root
-  video-collector:
-    restart: unless-stopped
-  video-reader:
-    restart: unless-stopped
   edge-stream-processor:
     restart: unless-stopped
     user: root
@@ -74,12 +66,6 @@ services:
     restart: unless-stopped
     user: root
   object-detector:
-    restart: unless-stopped
-    user: root
-  palm-detector:
-    restart: unless-stopped
-    user: root
-  palm-extractor:
     restart: unless-stopped
     user: root
   db-synchronization-leader:
