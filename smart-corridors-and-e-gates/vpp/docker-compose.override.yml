@@ -5,15 +5,15 @@
 # user: root — since v5_4.41.1 the images run as uid 10001, but the licensing library reads
 # hardware identifiers that only root can access, so as non-root it derives a different HWID and
 # rejects licenses issued for the HWID printed by license-manager ("License has different HWID than
-# this machine"). Confirmed by the VPP team. Running as root restores the pre-4.41.1 behaviour at the
-# cost of the non-root hardening; remove once VPP licensing works for uid 10001.
+# this machine"). Confirmed by the VPP team. Applied to the 21 services that load a biometric engine
+# or match templates; verified empirically on v5_4.43.0.10149 (the other 7 run fine as uid 10001).
+# Remove once VPP licensing works for uid 10001.
 services:
   base:
     restart: unless-stopped
     user: root
   streamdatadbworker:
     restart: unless-stopped
-    user: root
   grouping:
     restart: unless-stopped
     user: root
@@ -37,7 +37,6 @@ services:
     user: root
   graphql-api:
     restart: unless-stopped
-    user: root
   api:
     restart: unless-stopped
     user: root
@@ -64,16 +63,13 @@ services:
     user: root
   video-collector:
     restart: unless-stopped
-    user: root
   video-reader:
     restart: unless-stopped
-    user: root
   edge-stream-processor:
     restart: unless-stopped
     user: root
   edge-streams-state-synchronizer:
     restart: unless-stopped
-    user: root
   pedestrian-extractor:
     restart: unless-stopped
     user: root
@@ -88,7 +84,5 @@ services:
     user: root
   db-synchronization-leader:
     restart: unless-stopped
-    user: root
   db-synchronization-follower:
     restart: unless-stopped
-    user: root
