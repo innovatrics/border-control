@@ -20,7 +20,7 @@ echo "Calling set-state-error-non-migrated-faces command to mark faces that cann
 
 docker run --rm --name sf_admin \
     --volume "$(pwd)/iengine.lic:/etc/innovatrics/iengine.lic" \
-    --network vpp-network \
+    --network fm-network \
     "${ADMIN_IMAGE}" \
     set-state-error-non-migrated-faces \
     --no-confirm \

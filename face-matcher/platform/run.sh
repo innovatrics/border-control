@@ -23,9 +23,9 @@ if [ ! -f iengine.lic ]; then
     error_exit "License file not found. Please make sure that the iengine.lic file is present in the current directory."
 fi
 
-# vpp-network lets the dependency and the VPP containers reach each other.
+# fm-network lets the dependency and the platform containers reach each other.
 # This is a no-op if the network already exists, which we don't mind.
-docker network create vpp-network || true
+docker network create fm-network || true
 
 # load image coordinates and configuration from .env
 VERSION="$(getvalue VERSION)"
@@ -36,7 +36,7 @@ ADMIN_IMAGE="${REGISTRY}admin:${VERSION}"
 echo "Using admin image ${ADMIN_IMAGE}"
 
 # start the dependencies (database, RabbitMQ, S3 storage)
-# Smart Corridors: the Milvus vector database bundled with the release is not used here. It was
+# Face Matcher: the Milvus vector database bundled with the release is not used here. It was
 # removed from dependencies/docker-compose.yml, so the release's ensure_milvus_user_provisioned
 # wait is skipped as well (VectorDB__Provider stays "none" in .env).
 docker compose -f dependencies/docker-compose.yml up -d
@@ -47,7 +47,7 @@ docker compose down --remove-orphans
 # migrate the database to this version (run-migration waits for the dependencies itself)
 docker run --rm --name admin_migration \
     --volume "$(pwd)/iengine.lic:/etc/innovatrics/iengine.lic" \
-    --network vpp-network \
+    --network fm-network \
     "${ADMIN_IMAGE}" \
     run-migration \
         -p "$(getvalue CameraServicesCount)" \
@@ -60,7 +60,7 @@ docker run --rm --name admin_migration \
         --dependencies-availability-timeout 120
 
 # create the S3 bucket the services read and write crops to
-docker run --rm --name s3-bucket-create --network vpp-network "${ADMIN_IMAGE}" \
+docker run --rm --name s3-bucket-create --network fm-network "${ADMIN_IMAGE}" \
     ensure-s3-bucket-exists \
         --endpoint "$(getvalue S3Bucket__Endpoint)" --access-key "$(getvalue S3Bucket__AccessKey)" \
         --secret-key "$(getvalue S3Bucket__SecretKey)" --bucket-name "$(getvalue S3Bucket__BucketName)"

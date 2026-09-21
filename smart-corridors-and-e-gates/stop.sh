@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-docker compose -f ./docker-compose.yml down
-(cd ./vpp && docker compose down)
-(cd ./vpp && docker compose -f dependencies/docker-compose.yml down)
+# Stops the corridor services and the Face Matcher module underneath, keeping all data.
+# MCT is a separate Compose project and is not touched — see README.md.
+
+docker compose -f ./docker-compose.yml --env-file ./.env down
+(cd ../face-matcher && bash stop.sh)

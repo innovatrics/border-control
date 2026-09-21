@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="64" viewBox="0 0 100 64">
+  <!-- Face Matcher wordmark for the Station left nav. Typographic placeholder: it carries the
+       product name only, so it can be swapped for the final brand asset without touching the
+       deployment. Same 100x64 box as the mark it replaces. Drawn in currentColor-independent
+       white because the Station nav is dark. -->
+  <title>Face Matcher</title>
+  <g fill="#FFFFFF" font-family="Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif">
+    <text x="50" y="27" text-anchor="middle" font-size="17" font-weight="700" letter-spacing="0.5">FACE</text>
+    <text x="50" y="45" text-anchor="middle" font-size="13" font-weight="400" letter-spacing="1.6">MATCHER</text>
+  </g>
+  <rect x="26" y="52" width="48" height="2" fill="#FFFFFF" opacity="0.55"/>
+</svg>

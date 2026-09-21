@@ -1,6 +1,6 @@
 # Licensed material — never commit
-smart-corridors-and-e-gates/secrets/iengine.lic
-smart-corridors-and-e-gates/vpp/iengine.lic
+secrets/*.lic
+face-matcher/platform/iengine.lic
 
 # Local-only tooling (internal registry migration scripts etc.) — never commit
 .local/
@@ -8,6 +8,3 @@ smart-corridors-and-e-gates/vpp/iengine.lic
 # macOS
 .DS_Store
 __MACOSX/
-
-# Python validation cache
-__pycache__/
