@@ -212,11 +212,3 @@ untrusted network.
 > Docker socket. If you are upgrading, back up the calibration and recordings, then remove
 > the old containers first:
 > `docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down --remove-orphans`.
-
-## Validation
-
-Run `python3 -m unittest discover -s tests -v` from the repository root to validate Compose
-wiring, license mounts, MCT startup dependencies and shell syntax. These checks need Docker
-Compose but do not need registry access, a license or running containers. GitHub Actions runs
-them on each pull request. Runtime validation additionally requires the licensed images and
-a site calibration plus an SFE detection feed for MCT.
