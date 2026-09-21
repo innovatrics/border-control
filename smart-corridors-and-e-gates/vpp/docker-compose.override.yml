@@ -1,6 +1,14 @@
 # Smart Corridors local addition (not part of the VPP release): docker compose merges this file
-# automatically with docker-compose.yml. The release ships no restart policy, so a service that
-# crashes once (e.g. during the start-up burst) would stay down. Bring every service back up.
+# automatically with docker-compose.yml. It adds three things to every service.
+#
+# restart: unless-stopped — the release ships no restart policy, so a service that crashes once
+# (e.g. during the start-up burst) would stay down.
+#
+# container_name — the release lets Compose generate names (vpp-cam-1-1). These are the SmartFace
+# service names the platform itself uses, so "docker ps" lines up with the "OS service name" shown
+# in SF Station and with --serviceName above: SFCam1 in the UI is the SFCam1 container. Services
+# keep their Compose service name as a network alias, so cam-1, api, graphql-api still resolve.
+# (cam-nx's --serviceName is the fixed NX integration GUID; SFCamNx is used here for readability.)
 #
 # user: root — since v5_4.41.1 the images run as uid 10001, but the licensing library reads
 # hardware identifiers that only root can access, so as non-root it derives a different HWID and
@@ -10,79 +18,107 @@
 # Remove once VPP licensing works for uid 10001.
 services:
   base:
+    container_name: SFBase
     restart: unless-stopped
     user: root
   streamdatadbworker:
+    container_name: SFStreamDataDbWorker
     restart: unless-stopped
   grouping:
+    container_name: SFGroup
     restart: unless-stopped
     user: root
   cam-1:
+    container_name: SFCam1
     restart: unless-stopped
     user: root
   cam-2:
+    container_name: SFCam2
     restart: unless-stopped
     user: root
   cam-3:
+    container_name: SFCam3
     restart: unless-stopped
     user: root
   cam-4:
+    container_name: SFCam4
     restart: unless-stopped
     user: root
   cam-5:
+    container_name: SFCam5
     restart: unless-stopped
     user: root
   cam-nx:
+    container_name: SFCamNx
     restart: unless-stopped
     user: root
   graphql-api:
+    container_name: SFGraphQLApi
     restart: unless-stopped
   api:
+    container_name: SFApi
     restart: unless-stopped
     user: root
   detector:
+    container_name: SFDetectCpu
     restart: unless-stopped
     user: root
   pedestrian-detector:
+    container_name: SFPedestrianDetectCpu
     restart: unless-stopped
     user: root
   extractor:
+    container_name: SFExtractCpu
     restart: unless-stopped
     user: root
   matcher:
+    container_name: SFWatchlistMatcher
     restart: unless-stopped
     user: root
   face-matcher:
+    container_name: SFFaceMatcher
     restart: unless-stopped
     user: root
   liveness:
+    container_name: SFLiveness
     restart: unless-stopped
     user: root
   video-aggregator:
+    container_name: SFVideoDataAggregator
     restart: unless-stopped
     user: root
   video-collector:
+    container_name: SFVideoDataCollector
     restart: unless-stopped
   video-reader:
+    container_name: SFVideoReader
     restart: unless-stopped
   edge-stream-processor:
+    container_name: SFEdgeStreamProcessor
     restart: unless-stopped
     user: root
   edge-streams-state-synchronizer:
+    container_name: SFEdgeStreamsStateSynchronizer
     restart: unless-stopped
   pedestrian-extractor:
+    container_name: SFPedestrianExtractorCpu
     restart: unless-stopped
     user: root
   object-detector:
+    container_name: SFObjectDetectorCpu
     restart: unless-stopped
     user: root
   palm-detector:
+    container_name: SFPalmDetectCpu
     restart: unless-stopped
     user: root
   palm-extractor:
+    container_name: SFPalmExtractCpu
     restart: unless-stopped
     user: root
   db-synchronization-leader:
+    container_name: SFDbSynchronizationLeader
     restart: unless-stopped
   db-synchronization-follower:
+    container_name: SFDbSynchronizationFollower
     restart: unless-stopped
