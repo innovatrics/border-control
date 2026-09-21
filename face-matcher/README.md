@@ -34,7 +34,7 @@ docker run --rm registry.dot.innovatrics.com/border-control/vpp/license-manager:
 
 Provide this ID when requesting a license from the [Customer Portal](https://customerportal.innovatrics.com), then place the file at `../secrets/iengine.lic` before running `start.sh`.
 
-The license must be readable by the user the containers run as (`chmod 644`); `start.sh` applies this automatically. A license the containers cannot read shows up as `No license file was found` in the platform logs. The platform services deliberately run as root (see [The platform](#the-platform)); without that, the engine rejects the license with `License has different HWID than this machine`.
+The license must be readable by the user the containers run as (`chmod 644`); `start.sh` applies this automatically. A license the containers cannot read shows up as `No license file was found` in the platform logs. The platform services deliberately run as root (see [the platform section](#platform--the-platform)); without that, the engine rejects the license with `License has different HWID than this machine`.
 
 ## Registry login
 
@@ -115,7 +115,8 @@ Station wears the Face Matcher brand in every deployment, including one running 
 | `.env`                            | `Notifications__IncludeTemplates=true` (release: `false`)                                      | Clients consume face templates from the GraphQL notifications                          |
 | `dependencies/docker-compose.yml` | `milvus`, `milvus-etcd` and `milvus-create-user` removed (and their volumes/configs)           | The vector database is not used (`VectorDB__Provider=none`)                            |
 | `dependencies/docker-compose.yml` | One SeaweedFS data mount; pin RabbitMQ 4.3.6 and permit legacy `queue_master_locator` arguments | Keep the blob storage on a single volume, and support Smart Corridors Hub 0.4 on RabbitMQ 4 |
-| `run.sh`                          | `ensure_milvus_user_provisioned` wait removed                                                  | Follows the Milvus removal                                                             |
+| `run.sh`, `deployment-common.sh`  | the `ensure_milvus_user_provisioned` wait and the helper behind it removed                     | Follows the Milvus removal                                                             |
+| `.env`, `docker-compose.yml`      | the `Milvus__*` connection settings removed; `VectorDB__Provider=none` stays                   | Nothing to connect to, and the release ships a placeholder password in them            |
 | `sync-embeddings-to-vector-db.sh` | deleted                                                                                        | Needs Milvus                                                                           |
 | `migrate-palms.sh`, `finalize-non-migrated-palms.sh` | deleted                                                     | Follow the palm removal                                                                |
 | `docker-compose.override.yml`     | Added (not in the release): `restart: unless-stopped` on every service and `user: root` on the 17 that load a biometric engine or match templates (all but `graphql-api`, `streamdatadbworker`, `edge-streams-state-synchronizer` and the `db-synchronization-*` pair) | The release ships no restart policy; and as uid 10001 the licensing library cannot read the root-only hardware identifiers, so it derives a different HWID and rejects licenses issued for the HWID printed by `license-manager` (`License has different HWID than this machine`, confirmed by the platform team). Remove `user: root` once licensing works for uid 10001. |

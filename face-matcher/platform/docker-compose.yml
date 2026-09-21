@@ -259,11 +259,6 @@ services:
       VectorDB__Provider:
       VectorDB__RerankQueryLimitA:
       VectorDB__RerankQueryLimitB:
-      Milvus__Endpoint:
-      Milvus__UseAuthentication:
-      Milvus__Username:
-      Milvus__Password:
-      Milvus__Token:
       ImageDownload__TimeoutMs:
       ImageDownload__MaxImageSizeBytes:
       ImageDownload__AllowedHosts:
