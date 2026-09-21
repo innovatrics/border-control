@@ -159,13 +159,13 @@ MCT, and the base stack needs no calibration data.
 
 ```bash
 # database schema — also after raising MCT_TAG
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile migrate run --rm dbMigrator
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile migrate run --rm dbMigrator
 
 # load the calibration model from mct/models_data — skip if you import via Swagger instead
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct --profile seed run --rm configApiSeeder
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile seed run --rm configApiSeeder
 
 # the overlay itself
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct up -d
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct up -d
 ```
 
 Re-running the `seed` profile **overwrites** the model in the database, so leave it out of routine
@@ -175,7 +175,7 @@ MCT is a separate Compose project (`sceg-mct`), so `start.sh` never starts it an
 `factory-reset.sh` never stop it. Stop it explicitly (retaining calibration and recordings):
 
 ```bash
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down
+docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct down
 ```
 
 Add `-v` only for a factory reset: it deletes the calibration database, recordings and snapshots.
@@ -191,7 +191,7 @@ Add `-v` only for a factory reset: it deletes the calibration database, recordin
 The track stream lands on the stack's shared RabbitMQ as protobuf
 (`fanout://mct_tracker.tracking_updates/` + `fanout://position.message/`); the Hub consumes it
 directly when `ZONE_MCT_ENABLED=true` (see `.env.hub`). Images are the released MCT suite mirrored
-to Harbor, pinned by a single `MCT_TAG` in `.env.mct`.
+to Harbor, pinned by a single `MCT_TAG` in `mct/.env.mct`.
 
 **Is it tracking?** The visualizer is the quickest answer — dots moving on the floor plan. Per-frame
 ingest lines in `docker logs mct-tracker` are DEBUG only, so at the default `INFO` level a healthy
@@ -211,4 +211,4 @@ untrusted network.
 > own `rmq` is configured for 6 hours. Six containers instead of eight, and nothing holding the
 > Docker socket. If you are upgrading, back up the calibration and recordings, then remove
 > the old containers first:
-> `docker compose -p sceg-mct -f mct/docker-compose.yml --env-file .env.mct down --remove-orphans`.
+> `docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct down --remove-orphans`.
