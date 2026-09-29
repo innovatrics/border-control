@@ -1,0 +1,9 @@
+{
+  "windowTitle": "Face Matcher",
+  "configSection": "Face Matcher",
+  "feedbackDisplayErrorMessage": "Error",
+  "feedbackDisplayAccessGrantedWelcomeMessage": "Welcome",
+  "feedbackDisplayDeniedNotIdentifiedMessage": "Not identified",
+  "feedbackDisplayDeniedBlockedOrSpoofMessage": "Not identified",
+  "feedbackDisplayPutOnYourMaskMessage": "Put on your mask please"
+}

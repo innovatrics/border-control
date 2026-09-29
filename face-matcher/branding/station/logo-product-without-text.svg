@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="70" height="38" viewBox="0 0 70 38">
+  <!-- Face Matcher monogram for the collapsed Station sidebar. Typographic placeholder, same
+       70x38 box as the mark it replaces. -->
+  <title>Face Matcher</title>
+  <rect x="17" y="3" width="36" height="32" rx="7" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+  <text x="35" y="26" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="700"
+        letter-spacing="0.5" font-family="Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif">FM</text>
+</svg>

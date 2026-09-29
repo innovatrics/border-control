@@ -1,9 +1,0 @@
-{
-  "windowTitle": "Smart Corridors",
-  "configSection": "Smart Corridors Platform",
-  "feedbackDisplayErrorMessage": "Error",
-  "feedbackDisplayAccessGrantedWelcomeMessage": "Welcome",
-  "feedbackDisplayDeniedNotIdentifiedMessage": "Passage is not allowed",
-  "feedbackDisplayDeniedBlockedOrSpoofMessage": "Passage is not allowed",
-  "feedbackDisplayPutOnYourMaskMessage": "Put on your mask please"
-}
