@@ -62,9 +62,9 @@ Requires:
 Start, after `start.sh`:
 
 ```
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile migrate run --rm dbMigrator
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile seed run --rm configApiSeeder
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct up -d
+docker compose -p smart-corridor-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile migrate run --rm dbMigrator
+docker compose -p smart-corridor-mct -f mct/docker-compose.yml --env-file mct/.env.mct --profile seed run --rm configApiSeeder
+docker compose -p smart-corridor-mct -f mct/docker-compose.yml --env-file mct/.env.mct up -d
 ```
 
 Run the first two only once, and `migrate` again after raising `MCT_TAG`. `seed` overwrites the model in the database.
@@ -72,7 +72,7 @@ Run the first two only once, and `migrate` again after raising `MCT_TAG`. `seed`
 Stop:
 
 ```
-docker compose -p sceg-mct -f mct/docker-compose.yml --env-file mct/.env.mct down
+docker compose -p smart-corridor-mct -f mct/docker-compose.yml --env-file mct/.env.mct down
 ```
 
 Add `-v` to also delete the calibration database, recordings and snapshots.

@@ -1,9 +1,9 @@
-name: smart-corridors-and-e-gates
+name: smart-corridor
 
 services:
   hub:
     image: ${REGISTRY}corridor-hub:${HUB_VERSION}
-    container_name: sceg-hub
+    container_name: sc-hub
     restart: unless-stopped
     ports:
       - "8090:8090"
@@ -17,7 +17,7 @@ services:
 
   cigs:
     image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
-    container_name: sceg-cigs
+    container_name: sc-cigs
     restart: unless-stopped
     # restart: reacts to exits only; a hung JVM needs the healthcheck + autoheal.
     healthcheck:
@@ -27,7 +27,7 @@ services:
       retries: 3
       start_period: 60s
     labels:
-      sceg-autoheal: "true"
+      sc-autoheal: "true"
     ports:
       - "8096:80"
     environment:
@@ -53,7 +53,7 @@ services:
   # hub has no healthcheck: its image ships no shell or curl.
   frontend:
     image: ${REGISTRY}corridor-operational-display:${FRONTEND_VERSION}
-    container_name: sceg-frontend
+    container_name: sc-frontend
     restart: unless-stopped
     # nginx resolves the Hub at startup.
     depends_on:
@@ -67,11 +67,11 @@ services:
       retries: 3
       start_period: 15s
     labels:
-      sceg-autoheal: "true"
+      sc-autoheal: "true"
     ports:
       - "${FRONTEND_PORT:-8095}:80"
     environment:
-      HUB_URL: http://sceg-hub:8090
+      HUB_URL: http://sc-hub:8090
       SMARTFACE_GQL_URL: http://graphql-api:8080
       SMARTFACE_API_URL: http://api:8080
       # Station serves the live camera preview through the frontend nginx. Unset: Cameras panel shows "unavailable".
@@ -80,13 +80,13 @@ services:
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
-  # Restarts containers labeled sceg-autoheal=true once Docker marks them unhealthy. Needs the docker socket.
+  # Restarts containers labeled sc-autoheal=true once Docker marks them unhealthy. Needs the docker socket.
   autoheal:
     image: willfarrell/autoheal:1.2.0
-    container_name: sceg-autoheal
+    container_name: sc-autoheal
     restart: unless-stopped
     environment:
-      AUTOHEAL_CONTAINER_LABEL: sceg-autoheal
+      AUTOHEAL_CONTAINER_LABEL: sc-autoheal
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
