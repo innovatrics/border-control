@@ -2,7 +2,7 @@
 # Face Matcher, whose own .gitignore covers those links as well.
 secrets/*.lic
 face-matcher/secrets/*.lic
-face-matcher/platform/iengine.lic
+face-matcher/iengine.lic
 
 # Local-only tooling (internal registry migration scripts etc.) — never commit
 .local/

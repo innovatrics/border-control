@@ -1,6 +1,6 @@
 # Licensed material — never commit
 secrets/*.lic
-platform/iengine.lic
+/iengine.lic
 
 # Local-only tooling — never commit
 .local/

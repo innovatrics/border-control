@@ -11,10 +11,7 @@ services:
       - ./.env.hub
     environment:
       STORAGE_S3_ENDPOINT: http://seaweedfs:8333
-    # Fail-closed SmartCorridor license gate: the hub refuses to start unless the mounted
-    # iengine.lic carries a valid, unexpired smart_corridor.hub block. One license at the
-    # repository root serves both modules — the Face Matcher platform and CIGS read its iengine
-    # block, hub and frontend the smart_corridor block.
+    # Requires the smart_corridor.hub license block.
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
@@ -22,8 +19,7 @@ services:
     image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
     container_name: sceg-cigs
     restart: unless-stopped
-    # restart: only fires on process exit — a hung JVM (e.g. the 2026-07-14 crash-handler zombie,
-    # where PID 1 stayed alive but served nothing) needs healthcheck + autoheal to recover.
+    # restart: reacts to exits only; a hung JVM needs the healthcheck + autoheal.
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:80/actuator/health"]
       interval: 30s
@@ -35,7 +31,7 @@ services:
     ports:
       - "8096:80"
     environment:
-      # No OTLP collector on localhost:4317 in this setup ⇒ silence tracing export.
+      # No OTLP collector in this setup.
       TRACING_ENABLED: "false"
       CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_HOST: graphql-api
       CORRIDOR_IDENTITY_GROUPING_SOURCE_GRAPHQL_PORT: 8080
@@ -54,13 +50,12 @@ services:
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
-  # NOTE: hub has no healthcheck — its buildpack image ships no shell/curl, so there is nothing
-  # to exec the probe with. Revisit if the hub image ever gains a probe binary.
+  # hub has no healthcheck: its image ships no shell or curl.
   frontend:
     image: ${REGISTRY}corridor-operational-display:${FRONTEND_VERSION}
     container_name: sceg-frontend
     restart: unless-stopped
-    # This release's nginx resolves the Hub at startup. Start Hub first and follow Compose restarts.
+    # nginx resolves the Hub at startup.
     depends_on:
       hub:
         condition: service_started
@@ -79,21 +74,13 @@ services:
       HUB_URL: http://sceg-hub:8090
       SMARTFACE_GQL_URL: http://graphql-api:8080
       SMARTFACE_API_URL: http://api:8080
-      # SmartFace Station powers the live camera preview (operational-display 0.5.0). The
-      # frontend's nginx proxies the SPA's /smartface-video/<cameraId> WS to Station's /-/video bridge,
-      # so this is an in-network container URL like the two above. Station belongs to the Face
-      # Matcher module and joins the same fm-network, published on :8000. Unset ⇒ Cameras
-      # panel shows "unavailable".
+      # Station serves the live camera preview through the frontend nginx. Unset: Cameras panel shows "unavailable".
       SMARTFACE_STATION_URL: http://fm-station:8000
-    # Fail-closed operational_display license gate: the frontend serves a "not licensed"
-    # page unless the mounted iengine.lic carries a valid smart_corridor.operational_display block
-    # (same universal iengine.lic as the hub and CIGS).
+    # Requires the smart_corridor.operational_display license block.
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
-  # Restarts any container labeled sceg-autoheal=true once Docker marks it unhealthy. Plain Docker
-  # never restarts unhealthy containers on its own (restart policies react to exits only).
-  # Needs the docker socket, so it can restart peers — keep this service pinned and minimal.
+  # Restarts containers labeled sceg-autoheal=true once Docker marks them unhealthy. Needs the docker socket.
   autoheal:
     image: willfarrell/autoheal:1.2.0
     container_name: sceg-autoheal
@@ -105,5 +92,5 @@ services:
 
 networks:
   default:
-    name: fm-network
+    name: face-matcher-network
     external: true
