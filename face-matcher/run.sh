@@ -1,14 +1,8 @@
 #!/bin/bash
 
-# Brings up a deployment from the files shipped in this archive:
-# starts the bundled dependencies, migrates the database to this version, creates the
-# S3 bucket and finally starts the VPP services. The same script drives every
-# shipped deployment - only the docker-compose.yml and .env packaged alongside it differ.
-#
-# Configuration is read from .env, which is shipped pre-filled with the released image
-# coordinates (REGISTRY and VERSION) and working defaults for everything else.
+# Starts the dependencies, migrates the database, creates the S3 bucket and starts the services and Station.
+# Stacks built on Face Matcher run this first; they may export STATION_IDENTIFICATION and STATION_PUBLIC_HOST.
 
-set -x
 set -e
 
 function error_exit {
@@ -17,11 +11,20 @@ function error_exit {
 }
 
 # load shared helpers (getvalue); run this script from the deployment directory
-. "$(dirname "$0")/deployment-common.sh"
+cd "$(dirname "$0")"
+. ./deployment-common.sh
 
-if [ ! -f iengine.lic ]; then
-    error_exit "License file not found. Please make sure that the iengine.lic file is present in the current directory."
+if [ ! -f secrets/iengine.lic ]; then
+    error_exit "secrets/iengine.lic not found. See README.md."
 fi
+chmod a+r secrets/iengine.lic
+
+# the services mount iengine.lic from the deployment directory
+[ -e iengine.lic ] || ln -sf secrets/iengine.lic iengine.lic
+chmod a+r iengine.lic
+
+# Station hands the browser presigned S3 URLs; they must point at this host
+export STATION_PUBLIC_HOST="${STATION_PUBLIC_HOST:-$(hostname)}"
 
 # face-matcher-network lets the dependency and the platform containers reach each other.
 # This is a no-op if the network already exists, which we don't mind.
@@ -36,10 +39,9 @@ ADMIN_IMAGE="${REGISTRY}admin:${VERSION}"
 echo "Using admin image ${ADMIN_IMAGE}"
 
 # start the dependencies (database, RabbitMQ, S3 storage)
-# Milvus is not deployed; the release's ensure_milvus_user_provisioned wait is omitted.
 docker compose -f dependencies/docker-compose.yml up -d
 
-# stop VPP services (if any are running) before migrating the database
+# stop the services (if any are running) before migrating the database
 docker compose down --remove-orphans
 
 # migrate the database to this version (run-migration waits for the dependencies itself)
@@ -63,5 +65,10 @@ docker run --rm --name s3-bucket-create --network face-matcher-network "${ADMIN_
         --endpoint "$(getvalue S3Bucket__Endpoint)" --access-key "$(getvalue S3Bucket__AccessKey)" \
         --secret-key "$(getvalue S3Bucket__SecretKey)" --bucket-name "$(getvalue S3Bucket__BucketName)"
 
-# finally start the VPP services
+# finally start the services and Station (docker-compose.override.yml)
 docker compose up -d
+
+echo ""
+echo "Station     : http://localhost:$(getvalue STATION_PORT)"
+echo "REST API    : http://localhost:8098"
+echo "GraphQL API : http://localhost:8097/graphql"

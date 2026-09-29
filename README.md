@@ -6,7 +6,7 @@ Corridor and e-gate clearance on top of [Face Matcher](face-matcher/). The Hub t
 
 1. Install `Docker` and `docker compose` on the host machine.
 2. Login to container registry `docker login registry.dot.innovatrics.com -u <username> -p <password>`. The credentials are available in our [Customer Portal](https://customerportal.innovatrics.com/).
-3. Identify hardware id (hwid) for your machine with command `docker run --rm registry.dot.innovatrics.com/border-control/vpp/license-manager:3.2.7`.
+3. Identify hardware id (hwid) for your machine with command `docker run --rm registry.dot.innovatrics.com/vpp/license-manager:3.2.7`.
 4. Obtain a license with the `smart_corridor` block for your hwid from our Customer Portal https://customerportal.innovatrics.com/
 5. Copy the license file `iengine.lic` to `secrets/`.
 6. Run `start.sh`.
