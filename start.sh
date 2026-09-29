@@ -17,7 +17,7 @@ chmod a+r ./secrets/iengine.lic
 (cd ./face-matcher && bash start.sh)
 
 # Create the Hub's crop bucket on the platform's S3 storage.
-PLATFORM=./face-matcher/platform
+PLATFORM=./face-matcher
 getvalue() { grep -E "^$1=" "$PLATFORM/.env" | head -n1 | cut -d '=' -f2- | sed -E -e 's/\r$//' -e 's/[[:space:]]+#.*$//' -e 's/[[:space:]]+$//'; }
 docker run --rm --network face-matcher-network "$(getvalue REGISTRY)admin:$(getvalue VERSION)" \
   ensure-s3-bucket-exists \

@@ -15,9 +15,10 @@ Station is at http://localhost:8000.
 
 ## Scripts
 
-- `start.sh` - starts the platform (dependencies, database migration, services) and Station
+- `start.sh` - starts dependencies, migrates the database, starts the platform services and Station
 - `stop.sh` - stops everything, keeps data
 - `factory-reset.sh` - stops everything and deletes containers, images and volumes
+- `run.sh` - the release package's own start script, called by `start.sh`
 
 ## Endpoints
 
@@ -34,18 +35,63 @@ Ports are published on all interfaces with default credentials. Do not expose th
 
 ## Configuration
 
-- `.env` - Station image version and port; `STATION_IDENTIFICATION` enables the 1:N Identification page (default `true`)
+- `.env` - all settings, documented inline. Section 4 is Station: image version, port, `STATION_IDENTIFICATION`.
 - `.env.station` - Station settings
 - `branding/station/` - Station logo, favicon and naming
-- `platform/` - the video processing platform. Settings are documented inline in `platform/.env`. See [`platform/README.md`](platform/README.md) for the changes to the release package, upgrades and template migration.
+- `docker-compose.yml`, `dependencies/docker-compose.yml`, `run.sh` - the Innovatrics video processing platform release package (`video_processing_deployment.zip`)
+- `docker-compose.override.yml` - Station, the restart policy and `user: root`, see the comment inside
 
 Not deployed: offline video processing, grouping, palm biometrics, Milvus, Access Controller.
+
+## Changes to the release package
+
+- `docker-compose.yml`, `.env` - `grouping`, `video-*` and `palm-*` services and their settings removed
+- `.env` - `REGISTRY` points to Harbor; `Notifications__IncludeTemplates=true`; `Milvus__*` removed; section 4 added
+- `dependencies/docker-compose.yml` - Milvus removed; RabbitMQ pinned to 4.3.6 with `queue_master_locator` permitted; one SeaweedFS data mount
+- `run.sh`, `deployment-common.sh` - Milvus wait removed
+- `sync-embeddings-to-vector-db.sh`, `migrate-palms.sh`, `finalize-non-migrated-palms.sh` - deleted
+- `docker-compose.override.yml`, `start.sh`, `stop.sh`, `factory-reset.sh`, `.env.station`, `branding/` - added
+
+## Upgrade
+
+1. Mirror the new release images into `registry.dot.innovatrics.com/border-control/vpp/`.
+2. Unpack the new `video_processing_deployment.zip` over this directory and re-apply the changes above.
+3. If the face template model changed, run the migration below.
+4. Run `start.sh`.
+
+## Face templates migration
+
+1. To start migration of face templates, execute
+```
+./migrate-faces.sh
+```
+
+This will stop the current compose services, spawn the required face detector and extractor services, and run the migration CLI command. After this, you should see output regarding the success rate of migration and also a list of watchlist members for which template migration was not possible. You should store this output to handle those members' faces manually by requesting reenrollment of their faces.
+
+> **Note (1):** You can override the default template model version (`53`) by setting `FACE_MODEL_VERSION` env variable before running the script. Possible values are `52` (`fast`), `53` (`balanced`), `54` (`accurate`), `55` (`accurate_server`).
+
+> **Note (2):** It is possible that there were some transient errors while running this script (e.g. some RPC calls may timeout). In that case, it is safe to run this command again.
+
+2. To finalize migration, execute
+```
+./finalize-non-migrated-faces.sh
+```
+This will force the remaining faces that were not possible to migrate to be set to error state and thus be skipped by our matchers at startup.
+
+3. Start the services again with `start.sh`.
+
+## Watchlist update-log stream
+
+If the release notes say the watchlist update-log stream needs regenerating, execute
+```
+./populate-wl-update-log-stream.sh
+```
 
 ## Integration
 
 A stack built on Face Matcher may rely on the following. Everything else is internal.
 
-| Network      | `face-matcher-network`, created by `platform/run.sh`. Join it with `external: true`.               |
+| Network      | `face-matcher-network`, created by `run.sh`. Join it with `external: true`.                        |
 | ------------ | ------------------------------------------------------------------------------------------------- |
 | REST API     | `api:8080`                                                                                        |
 | GraphQL API  | `graphql-api:8080`. Face templates are included in notifications.                                  |
@@ -53,10 +99,10 @@ A stack built on Face Matcher may rely on the following. Everything else is inte
 | S3           | `seaweedfs:8333`. Use your own bucket.                                                             |
 | PostgreSQL   | `pgsql:5432`                                                                                      |
 | Station      | `fm-station:8000`                                                                                 |
-| Admin image  | `${REGISTRY}admin:${VERSION}` from `platform/.env`                                                 |
+| Admin image  | `${REGISTRY}admin:${VERSION}` from `.env`                                                          |
 | Start order  | Face Matcher first. `start.sh` reads `STATION_IDENTIFICATION` and `STATION_PUBLIC_HOST` from the environment. |
 
-Credentials are in `platform/.env`.
+Credentials are in `.env`.
 
 ## Production use
 

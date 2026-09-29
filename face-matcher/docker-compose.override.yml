@@ -1,9 +1,27 @@
-# Not part of the release package. Adds restart: unless-stopped to every service and user: root to the
+# Not part of the release package: Station, restart: unless-stopped on every service, and user: root on the
 # 17 services that load a biometric engine or match templates. Since v5_4.41.1 the images run as uid 10001,
 # but the licensing library reads root-only hardware identifiers, derives a different HWID and rejects the
 # license ("License has different HWID than this machine"). Verified on v5_4.43.0.10149; the other 5 services
 # run as uid 10001. Remove user: root once licensing works for uid 10001.
 services:
+  station:
+    image: ${REGISTRY}sf-station:${STATION_VERSION}
+    container_name: fm-station
+    restart: unless-stopped
+    ports:
+      - "${STATION_PORT:-8000}:8000"
+    env_file:
+      - ./.env.station
+    environment:
+      # Browser-reachable address of the S3 storage; start.sh sets STATION_PUBLIC_HOST.
+      S3_PUBLIC_ENDPOINT: http://${STATION_PUBLIC_HOST:-localhost}:8333
+      IDENTIFICATION_ENABLED: "${STATION_IDENTIFICATION:-true}"
+    volumes:
+      - ./iengine.lic:/etc/innovatrics/iengine.lic:ro
+      - ./branding/station/logo-product.svg:/build/branding/logo-product.svg:ro
+      - ./branding/station/logo-product-without-text.svg:/build/branding/logo-product-without-text.svg:ro
+      - ./branding/station/favicon-product.ico:/build/branding/favicon-product.ico:ro
+      - ./branding/station/naming-product.json:/build/branding/naming-product.json:ro
   base:
     restart: unless-stopped
     user: root
