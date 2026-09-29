@@ -1,6 +1,4 @@
-# Face Matcher Station — the UI half of the deployment. The engine is platform/, brought up by
-# start.sh before this file. Station joins the same face-matcher-network, so it reaches the platform
-# APIs by service name (api:8080, graphql-api:8080) and its storage at seaweedfs:8333.
+# Face Matcher Station. The platform is started first by start.sh (platform/run.sh).
 name: face-matcher-station
 
 services:
@@ -13,15 +11,11 @@ services:
     env_file:
       - ./.env.station
     environment:
-      # Host name the browser uses to reach the S3 storage: Station hands out presigned crop
-      # URLs, which must point at this host rather than at the in-network "seaweedfs".
-      # start.sh exports STATION_PUBLIC_HOST.
+      # Browser-reachable address of the S3 storage; start.sh sets STATION_PUBLIC_HOST.
       S3_PUBLIC_ENDPOINT: http://${STATION_PUBLIC_HOST:-localhost}:8333
       IDENTIFICATION_ENABLED: "${STATION_IDENTIFICATION:-true}"
     volumes:
       - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
-      # Station inlines these brand assets at startup. Station wears the Face Matcher brand in
-      # every deployment, including one running underneath Smart Corridors & e-Gates.
       - ./branding/station/logo-product.svg:/build/branding/logo-product.svg:ro
       - ./branding/station/logo-product-without-text.svg:/build/branding/logo-product-without-text.svg:ro
       - ./branding/station/favicon-product.ico:/build/branding/favicon-product.ico:ro
@@ -29,6 +23,5 @@ services:
 
 networks:
   default:
-    # Created by platform/run.sh.
     name: face-matcher-network
     external: true

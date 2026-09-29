@@ -1,44 +1,53 @@
 # Face Matcher platform
 
-The engine half of Face Matcher: the Innovatrics video processing platform release package, trimmed to the face-identification services. It is vendored as shipped apart from the edits listed in [`../README.md`](../README.md#platform--the-platform).
+The Innovatrics video processing platform release package (`video_processing_deployment.zip`), trimmed to the face identification services. It is started by `../start.sh`; do not run `run.sh` directly.
 
-- `docker-compose.yml` — the platform services
-- `docker-compose.override.yml` — the local additions (restart policy, `user: root`); Compose merges it automatically
-- `.env` — the configuration shared by all services, documented inline; edit this to configure the platform
-- `dependencies/docker-compose.yml` — the bundled dependencies (database, RabbitMQ, S3 storage)
-- `run.sh` — brings the platform up (dependencies, database migration, S3 bucket, services)
-- the template-migration and watchlist-stream helper scripts described below
+- `docker-compose.yml` - platform services
+- `docker-compose.override.yml` - restart policy and `user: root`, see the comment inside
+- `.env` - configuration, documented inline
+- `dependencies/docker-compose.yml` - PostgreSQL, RabbitMQ, SeaweedFS
+- `run.sh` - starts dependencies, migrates the database, creates the S3 bucket, starts the services
 
-**Do not run `run.sh` directly for a normal start.** Use `bash start.sh` in the repository root: it places the license where `run.sh` expects it, then brings Station up as well. `run.sh` is the platform-only step that `start.sh` calls. Once running, the services can be restarted at any time with `docker compose up -d` from this folder.
+## Changes to the release package
 
-## Template migration
+- `docker-compose.yml`, `.env` - `grouping`, `video-*` and `palm-*` services and their settings removed
+- `.env` - `REGISTRY` points to Harbor; `Notifications__IncludeTemplates=true`; `Milvus__*` removed
+- `dependencies/docker-compose.yml` - Milvus removed; RabbitMQ pinned to 4.3.6 with `queue_master_locator` permitted; one SeaweedFS data mount
+- `run.sh`, `deployment-common.sh` - Milvus wait removed
+- `sync-embeddings-to-vector-db.sh`, `migrate-palms.sh`, `finalize-non-migrated-palms.sh` - deleted
+- `docker-compose.override.yml` - added
 
-When upgrading from an older version, stored face templates may need migrating to the template model bundled with the new version. Read the release notes first: if the model did not change, skip this.
+## Upgrade
 
-1. Start the migration:
-   ```
-   ./migrate-faces.sh
-   ```
-   This stops the running services, spawns temporary face detector/extractor workers and runs the migration. It then prints the success rate and the watchlist members whose templates could not be migrated. Store that output so you can re-enroll those members' faces manually.
+1. Mirror the new release images into `registry.dot.innovatrics.com/border-control/vpp/`.
+2. Unpack the new `video_processing_deployment.zip` over this directory and re-apply the changes above.
+3. If the face template model changed, run the migration below.
+4. Run `../start.sh`.
 
-   > **Note (1):** Override the template model version (default `53`) with the `FACE_MODEL_VERSION` env variable. Values: `52` (fast), `53` (balanced), `54` (accurate), `55` (accurate_server).
+## Face templates migration
 
-   > **Note (2):** Transient errors (e.g. RPC timeouts) can happen. It is safe to run the script again.
+1. To start migration of face templates, execute
+```
+./migrate-faces.sh
+```
 
-2. Finalize the migration:
-   ```
-   ./finalize-non-migrated-faces.sh
-   ```
-   This forces the faces that could not be migrated into the error state so the matchers skip them at startup.
+This will stop the current compose services, spawn the required face detector and extractor services, and run the migration CLI command. After this, you should see output regarding the success rate of migration and also a list of watchlist members for which template migration was not possible. You should store this output to handle those members' faces manually by requesting reenrollment of their faces.
 
-3. Start the services again with `bash ../start.sh`.
+> **Note (1):** You can override the default template model version (`53`) by setting `FACE_MODEL_VERSION` env variable before running the script. Possible values are `52` (`fast`), `53` (`balanced`), `54` (`accurate`), `55` (`accurate_server`).
 
-Palm template migration is not part of Face Matcher; the palm services and their migration scripts have been removed.
+> **Note (2):** It is possible that there were some transient errors while running this script (e.g. some RPC calls may timeout). In that case, it is safe to run this command again.
 
-## Regenerating the watchlist update-log stream
+2. To finalize migration, execute
+```
+./finalize-non-migrated-faces.sh
+```
+This will force the remaining faces that were not possible to migrate to be set to error state and thus be skipped by our matchers at startup.
 
-If the release notes say the watchlist update stream log needs regenerating, you can rebuild that stream from the watchlist data currently in the SQL database:
+3. Start the services again with `../start.sh`.
 
+## Watchlist update-log stream
+
+If the release notes say the watchlist update-log stream needs regenerating, execute
 ```
 ./populate-wl-update-log-stream.sh
 ```
