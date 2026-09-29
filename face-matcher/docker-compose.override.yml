@@ -13,7 +13,7 @@ services:
     env_file:
       - ./.env.station
     environment:
-      # Browser-reachable address of the S3 storage; start.sh sets STATION_PUBLIC_HOST.
+      # Browser-reachable address of the S3 storage; run.sh sets STATION_PUBLIC_HOST.
       S3_PUBLIC_ENDPOINT: http://${STATION_PUBLIC_HOST:-localhost}:8333
       IDENTIFICATION_ENABLED: "${STATION_IDENTIFICATION:-true}"
     volumes:

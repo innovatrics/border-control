@@ -9,16 +9,15 @@ Face Matcher is a real-time face identification server. It processes video strea
 3. Identify hardware id (hwid) for your machine with command `docker run --rm registry.dot.innovatrics.com/vpp/license-manager:3.2.7`.
 4. Obtain license for your hwid from our Customer Portal https://customerportal.innovatrics.com/
 5. Copy the license file `iengine.lic` to `secrets/`.
-6. Run `start.sh`.
+6. Run `run.sh`.
 
 Station is at http://localhost:8000.
 
 ## Scripts
 
-- `start.sh` - starts dependencies, migrates the database, starts the platform services and Station
+- `run.sh` - starts dependencies, migrates the database, starts the platform services and Station
 - `stop.sh` - stops everything, keeps data
 - `factory-reset.sh` - stops everything and deletes containers, images and volumes
-- `run.sh` - the release package's own start script, called by `start.sh`
 
 ## Endpoints
 
@@ -48,16 +47,17 @@ Not deployed: offline video processing, grouping, palm biometrics, Milvus, Acces
 - `docker-compose.yml`, `.env` - `grouping`, `video-*` and `palm-*` services and their settings removed
 - `.env` - `REGISTRY` points to Harbor; `Notifications__IncludeTemplates=true`; `Milvus__*` removed; section 4 added
 - `dependencies/docker-compose.yml` - Milvus removed; RabbitMQ pinned to 4.3.6 with `queue_master_locator` permitted; one SeaweedFS data mount
-- `run.sh`, `deployment-common.sh` - Milvus wait removed
+- `run.sh` - license from `secrets/`, `STATION_PUBLIC_HOST` and the endpoint summary added; Milvus wait removed
+- `deployment-common.sh` - Milvus wait removed
 - `sync-embeddings-to-vector-db.sh`, `migrate-palms.sh`, `finalize-non-migrated-palms.sh` - deleted
-- `docker-compose.override.yml`, `start.sh`, `stop.sh`, `factory-reset.sh`, `.env.station`, `branding/` - added
+- `docker-compose.override.yml`, `stop.sh`, `factory-reset.sh`, `.env.station`, `branding/` - added
 
 ## Upgrade
 
 1. Mirror the new release images into `registry.dot.innovatrics.com/vpp/`.
 2. Unpack the new `video_processing_deployment.zip` over this directory and re-apply the changes above.
 3. If the face template model changed, run the migration below.
-4. Run `start.sh`.
+4. Run `run.sh`.
 
 ## Face templates migration
 
@@ -78,7 +78,7 @@ This will stop the current compose services, spawn the required face detector an
 ```
 This will force the remaining faces that were not possible to migrate to be set to error state and thus be skipped by our matchers at startup.
 
-3. Start the services again with `start.sh`.
+3. Start the services again with `run.sh`.
 
 ## Watchlist update-log stream
 
@@ -100,7 +100,7 @@ A stack built on Face Matcher may rely on the following. Everything else is inte
 | PostgreSQL   | `pgsql:5432`                                                                                      |
 | Station      | `fm-station:8000`                                                                                 |
 | Admin image  | `${REGISTRY}admin:${VERSION}` from `.env`                                                          |
-| Start order  | Face Matcher first. `start.sh` reads `STATION_IDENTIFICATION` and `STATION_PUBLIC_HOST` from the environment. |
+| Start order  | Face Matcher first. `run.sh` reads `STATION_IDENTIFICATION` and `STATION_PUBLIC_HOST` from the environment. |
 
 Credentials are in `.env`.
 

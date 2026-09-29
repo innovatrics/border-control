@@ -14,7 +14,7 @@ fi
 chmod a+r ./secrets/iengine.lic
 [ -e ./face-matcher/secrets/iengine.lic ] || ln -sf ../../secrets/iengine.lic ./face-matcher/secrets/iengine.lic
 
-(cd ./face-matcher && bash start.sh)
+(cd ./face-matcher && bash run.sh)
 
 # Create the Hub's crop bucket on the platform's S3 storage.
 PLATFORM=./face-matcher

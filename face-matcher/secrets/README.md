@@ -1,3 +1,3 @@
 # secrets/
 
-Put `iengine.lic` here. It is git-ignored. `start.sh` links it into `platform/`.
+Put `iengine.lic` here. It is git-ignored. `run.sh` links it into the repository root, where the services mount it.
