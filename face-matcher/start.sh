@@ -6,15 +6,15 @@ set -e
 # add their own services afterwards; they may export STATION_IDENTIFICATION and
 # STATION_PUBLIC_HOST to adjust Station before it starts.
 
-# One license file serves both modules, so it lives at the repository root.
-if [ ! -f ../secrets/iengine.lic ]; then
-  echo "ERROR: no iengine.lic in secrets/ at the repository root. Obtain a license (see README.md) and place it there." >&2
+# The license lives at the repository root, in secrets/.
+if [ ! -f ./secrets/iengine.lic ]; then
+  echo "ERROR: no iengine.lic in secrets/. Obtain a license (see README.md) and place it there." >&2
   exit 1
 fi
-chmod a+r ../secrets/iengine.lic
+chmod a+r ./secrets/iengine.lic
 
 # The platform's run.sh expects iengine.lic next to its docker-compose.yml.
-[ -e ./platform/iengine.lic ] || ln -sf ../../secrets/iengine.lic ./platform/iengine.lic
+[ -e ./platform/iengine.lic ] || ln -sf ../secrets/iengine.lic ./platform/iengine.lic
 chmod a+r ./platform/iengine.lic
 
 # Bring up the platform: dependencies, database migration, S3 bucket and engine services.

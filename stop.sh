@@ -5,4 +5,4 @@ set -e
 # MCT is a separate Compose project and is not touched — see README.md.
 
 docker compose -f ./docker-compose.yml --env-file ./.env down
-(cd ../face-matcher && bash stop.sh)
+(cd ./face-matcher && bash stop.sh)

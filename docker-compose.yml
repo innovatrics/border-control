@@ -16,7 +16,7 @@ services:
     # repository root serves both modules — the Face Matcher platform and CIGS read its iengine
     # block, hub and frontend the smart_corridor block.
     volumes:
-      - ../secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   cigs:
     image: ${REGISTRY}corridor-identity-grouping-service:${CIGS_VERSION}
@@ -52,7 +52,7 @@ services:
       CORRIDOR_IDENTITY_GROUPING_FACE_FILTER_ROLL_ANGLE_MAX: 50
       CORRIDOR_IDENTITY_GROUPING_GROUPING_VERIFICATION_SCORE_THRESHOLD: 35
     volumes:
-      - ../secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   # NOTE: hub has no healthcheck — its buildpack image ships no shell/curl, so there is nothing
   # to exec the probe with. Revisit if the hub image ever gains a probe binary.
@@ -89,7 +89,7 @@ services:
     # page unless the mounted iengine.lic carries a valid smart_corridor.operational_display block
     # (same universal iengine.lic as the hub and CIGS).
     volumes:
-      - ../secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
+      - ./secrets/iengine.lic:/etc/innovatrics/iengine.lic:ro
 
   # Restarts any container labeled sceg-autoheal=true once Docker marks it unhealthy. Plain Docker
   # never restarts unhealthy containers on its own (restart policies react to exits only).

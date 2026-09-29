@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-# Starts Face Matcher (the base module: platform + Station) and then the corridor services.
+# Starts Face Matcher (vendored in face-matcher/: platform + Station) and then the corridor services.
 # MCT is a separate overlay and is never started here — see README.md.
 
 # Station belongs to Face Matcher and keeps the Face Matcher brand here too; only its 1:N
@@ -9,10 +9,19 @@ set -e
 export STATION_IDENTIFICATION=false
 export STATION_PUBLIC_HOST="${STATION_PUBLIC_HOST:-$(hostname)}"
 
-(cd ../face-matcher && bash start.sh)
+# One license serves the corridor services and Face Matcher. It lives in ./secrets; Face Matcher
+# looks for it in its own secrets/ folder, so link it there before starting.
+if [ ! -f ./secrets/iengine.lic ]; then
+  echo "ERROR: no iengine.lic in secrets/. Obtain a license (see README.md) and place it there." >&2
+  exit 1
+fi
+chmod a+r ./secrets/iengine.lic
+[ -e ./face-matcher/secrets/iengine.lic ] || ln -sf ../../secrets/iengine.lic ./face-matcher/secrets/iengine.lic
+
+(cd ./face-matcher && bash start.sh)
 
 # Create the Hub's crop bucket on the platform's S3 storage (SeaweedFS) with its admin tool.
-PLATFORM=../face-matcher/platform
+PLATFORM=./face-matcher/platform
 getvalue() { grep -E "^$1=" "$PLATFORM/.env" | head -n1 | cut -d '=' -f2- | sed -E -e 's/\r$//' -e 's/[[:space:]]+#.*$//' -e 's/[[:space:]]+$//'; }
 docker run --rm --network fm-network "$(getvalue REGISTRY)admin:$(getvalue VERSION)" \
   ensure-s3-bucket-exists \

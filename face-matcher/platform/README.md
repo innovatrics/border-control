@@ -1,6 +1,6 @@
 # Face Matcher platform
 
-The engine half of the Face Matcher module: the Innovatrics video processing platform release package, trimmed to the face-identification services. It is vendored as shipped apart from the edits listed in [`../README.md`](../README.md#platform--the-platform).
+The engine half of Face Matcher: the Innovatrics video processing platform release package, trimmed to the face-identification services. It is vendored as shipped apart from the edits listed in [`../README.md`](../README.md#platform--the-platform).
 
 - `docker-compose.yml` — the platform services
 - `docker-compose.override.yml` — the local additions (restart policy, `user: root`); Compose merges it automatically
@@ -9,7 +9,7 @@ The engine half of the Face Matcher module: the Innovatrics video processing pla
 - `run.sh` — brings the platform up (dependencies, database migration, S3 bucket, services)
 - the template-migration and watchlist-stream helper scripts described below
 
-**Do not run `run.sh` directly for a normal start.** Use `bash start.sh` in the module folder above: it places the license where `run.sh` expects it, then brings Station up as well. `run.sh` is the platform-only step that `start.sh` calls. Once running, the services can be restarted at any time with `docker compose up -d` from this folder.
+**Do not run `run.sh` directly for a normal start.** Use `bash start.sh` in the repository root: it places the license where `run.sh` expects it, then brings Station up as well. `run.sh` is the platform-only step that `start.sh` calls. Once running, the services can be restarted at any time with `docker compose up -d` from this folder.
 
 ## Template migration
 

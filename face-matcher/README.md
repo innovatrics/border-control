@@ -2,13 +2,13 @@
 
 Real-time face identification. Face Matcher watches camera streams, detects and tracks faces, extracts biometric templates and matches them against your watchlists, then publishes the results over REST, GraphQL and a message broker. Station, the bundled web UI, is where operators manage watchlists, cameras and live previews, and where they run a 1:N search of a single photo against the enrolled population.
 
-Face Matcher is the base module of this repository. It runs on its own, and [Smart Corridors & e-Gates](../smart-corridors-and-e-gates/) builds on it.
+Face Matcher is a complete deployment on its own. It is also the base of Smart Corridors & e-Gates, which lives in its own repository and vendors this one.
 
 ## Quick start
 
 1. Clone this repository onto the target machine or server.
 2. Obtain a license from the [Innovatrics Customer Portal](https://customerportal.innovatrics.com) — see [License](#license) below.
-3. Place `iengine.lic` into [`../secrets/`](../secrets/).
+3. Place `iengine.lic` into [`secrets/`](secrets/).
 4. From the `face-matcher/` folder, run:
 
 ```bash
@@ -32,7 +32,7 @@ To get your hardware ID, run:
 docker run --rm registry.dot.innovatrics.com/border-control/vpp/license-manager:3.2.7
 ```
 
-Provide this ID when requesting a license from the [Customer Portal](https://customerportal.innovatrics.com), then place the file at `../secrets/iengine.lic` before running `start.sh`.
+Provide this ID when requesting a license from the [Customer Portal](https://customerportal.innovatrics.com), then place the file at `secrets/iengine.lic` before running `start.sh`.
 
 The license must be readable by the user the containers run as (`chmod 644`); `start.sh` applies this automatically. A license the containers cannot read shows up as `No license file was found` in the platform logs. The platform services deliberately run as root (see [the platform section](#platform--the-platform)); without that, the engine rejects the license with `License has different HWID than this machine`.
 
@@ -78,13 +78,13 @@ Face Matcher is a deliberately narrowed deployment of the Innovatrics video proc
 | Grouping | `grouping` | Unused. Smart Corridors does its own identity grouping in CIGS. |
 | Palm biometrics | `palm-detector`, `palm-extractor` | Face Matcher is faces only. The palm template-migration scripts are gone with them. |
 | Access Controller | — | Not supported. It was never deployed here; `ACCESS_CONTROLLER_ADDRESS` stays empty in `.env.station`. |
-| Vector database | `milvus` and friends | Not used; `VectorDB__Provider=none`. Removed before this module existed. |
+| Vector database | `milvus` and friends | Not used; `VectorDB__Provider=none`. Removed before this repository existed. |
 
 Pedestrian detection, generic object detection, edge-stream processing and database synchronisation are still deployed. They are candidates for a later trim, not decided yet.
 
 ## Configuration
 
-### `.env` — the module
+### `.env` — the deployment
 
 | Variable                 | Description                                                                       |
 | ------------------------ | --------------------------------------------------------------------------------- |
