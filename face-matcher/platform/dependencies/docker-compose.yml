@@ -99,7 +99,7 @@ volumes:
   seaweedfsdata:
 networks:
   default:
-    name: fm-network
+    name: face-matcher-network
     external: true
 configs:
   rabbitmq_config:

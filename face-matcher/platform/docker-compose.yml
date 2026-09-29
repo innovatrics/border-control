@@ -458,5 +458,5 @@ services:
       <<: [*labels-logging, *labels-application]
 networks:
   default:
-    name: fm-network
+    name: face-matcher-network
     external: true

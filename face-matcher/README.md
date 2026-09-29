@@ -121,7 +121,7 @@ Station wears the Face Matcher brand in every deployment, including one running 
 | `migrate-palms.sh`, `finalize-non-migrated-palms.sh` | deleted                                                     | Follow the palm removal                                                                |
 | `docker-compose.override.yml`     | Added (not in the release): `restart: unless-stopped` on every service and `user: root` on the 17 that load a biometric engine or match templates (all but `graphql-api`, `streamdatadbworker`, `edge-streams-state-synchronizer` and the `db-synchronization-*` pair) | The release ships no restart policy; and as uid 10001 the licensing library cannot read the root-only hardware identifiers, so it derives a different HWID and rejects licenses issued for the HWID printed by `license-manager` (`License has different HWID than this machine`, confirmed by the platform team). Remove `user: root` once licensing works for uid 10001. |
 
-Services reach each other by their Compose service names on the shared `fm-network` (`graphql-api`, `api`, `rmq`, `seaweedfs`, `pgsql`); the APIs listen on port `8080` inside the network.
+Services reach each other by their Compose service names on the shared `face-matcher-network` (`graphql-api`, `api`, `rmq`, `seaweedfs`, `pgsql`); the APIs listen on port `8080` inside the network.
 
 #### Upgrading the platform
 
@@ -130,9 +130,26 @@ Services reach each other by their Compose service names on the shared `fm-netwo
 3. Read the release notes. If the face template model changed, run `platform/migrate-faces.sh` and `platform/finalize-non-migrated-faces.sh` as described in [`platform/README.md`](platform/README.md) before starting the services.
 4. Run `bash start.sh` — the platform's `run.sh` migrates the database on the way up.
 
+## What a stack built on Face Matcher can rely on
+
+Smart Corridors & e-Gates runs on top of Face Matcher, and other stacks may too. This is the interface they may depend on; anything not listed here is internal and can change between releases.
+
+| Rely on | Value |
+| ------- | ----- |
+| Network | `face-matcher-network`, created by `platform/run.sh`. Attach your services to it with `external: true`; do not create it yourself. |
+| REST API | `api:8080` |
+| GraphQL API | `graphql-api:8080`, including the WebSocket subscriptions. Face templates are included in notifications (`Notifications__IncludeTemplates=true`). |
+| Message broker | `rmq:5672` AMQP, `rmq:1883` MQTT, `rmq:5552` streams. Credentials in `platform/.env` (`RabbitMQ__*`). |
+| Blob storage | `seaweedfs:8333`, S3 API. Credentials in `platform/.env` (`S3Bucket__*`). Create your own bucket; do not write into `face-matcher`. |
+| Database | `pgsql:5432`. Connection string in `platform/.env`. Read if you must; the schema is not an interface. |
+| Station | `fm-station:8000`, and its `/-/video` bridge for live previews. |
+| Admin tool | `${REGISTRY}admin:${VERSION}` from `platform/.env`, for one-off jobs such as `ensure-s3-bucket-exists`. |
+| Start order | Face Matcher first. Its `start.sh` accepts `STATION_IDENTIFICATION` and `STATION_PUBLIC_HOST` from the environment. |
+| License | Your own `secrets/iengine.lic`; add whatever blocks your services need to the same file. |
+
 ## Names still carrying the old product
 
-The deployment is fully rebranded. The Compose projects are `face-matcher-platform`, `face-matcher-dependencies` and `face-matcher-station`, the network is `fm-network`, Station's container is `fm-station`, the database is `facematcher` and the blob bucket is `face-matcher`.
+The deployment is fully rebranded. The Compose projects are `face-matcher-platform`, `face-matcher-dependencies` and `face-matcher-station`, the network is `face-matcher-network`, Station's container is `fm-station`, the database is `facematcher` and the blob bucket is `face-matcher`.
 
 What is left belongs to the images themselves and changes when Innovatrics publishes rebranded ones:
 

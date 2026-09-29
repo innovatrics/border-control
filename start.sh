@@ -23,7 +23,7 @@ chmod a+r ./secrets/iengine.lic
 # Create the Hub's crop bucket on the platform's S3 storage (SeaweedFS) with its admin tool.
 PLATFORM=./face-matcher/platform
 getvalue() { grep -E "^$1=" "$PLATFORM/.env" | head -n1 | cut -d '=' -f2- | sed -E -e 's/\r$//' -e 's/[[:space:]]+#.*$//' -e 's/[[:space:]]+$//'; }
-docker run --rm --network fm-network "$(getvalue REGISTRY)admin:$(getvalue VERSION)" \
+docker run --rm --network face-matcher-network "$(getvalue REGISTRY)admin:$(getvalue VERSION)" \
   ensure-s3-bucket-exists \
     --endpoint "$(getvalue S3Bucket__Endpoint)" --access-key "$(getvalue S3Bucket__AccessKey)" \
     --secret-key "$(getvalue S3Bucket__SecretKey)" --bucket-name corridor-hub

@@ -62,6 +62,12 @@ The corridor services, plus the Face Matcher endpoints underneath them:
 
 To take a new Face Matcher release, replace the folder with a fresh checkout of that repository at the release tag and commit the result. There are no local edits to re-apply.
 
+### One network, owned by Face Matcher
+
+There is a single Docker network, `face-matcher-network`. Face Matcher creates it in `platform/run.sh`; every Compose file here, the corridor stack and MCT alike, joins it by name with `external: true` rather than creating a network of its own. That is what lets the Hub reach `graphql-api:8080` and the display reach `fm-station:8000` across Compose projects, and it is why a corridor `up` without Face Matcher running fails with `network face-matcher-network declared as external, but could not be found`: a correct guard, since nothing here runs without it.
+
+The corridor services depend on Face Matcher only through what its README lists under [what a stack built on Face Matcher can rely on](face-matcher/README.md#what-a-stack-built-on-face-matcher-can-rely-on): that network, a handful of container names and ports, the credentials in its `platform/.env`, and the license. Keeping to that list is what will let the vendored copy be replaced by a separately deployed Face Matcher later.
+
 ### `.env` — corridor service versions
 
 | Variable           | Description                                |
@@ -169,7 +175,7 @@ untrusted network.
 > into it, and a watchdog that mounted the Docker socket to restart a tracker that occasionally
 > wedged. None of the three is here any more. The tracker build of the time required MQTT 5, which
 > the former RabbitMQ 3.12 base broker could not parse. The current base stack uses RabbitMQ 4;
-> the released tracker speaks MQTT 3.1.1 and reads that shared `rmq` directly on `fm-network`.
+> the released tracker speaks MQTT 3.1.1 and reads that shared `rmq` directly on `face-matcher-network`.
 > The wedge itself looks to have been a side effect of that extra broker — it ran RabbitMQ's default 30-minute `consumer_timeout`, whereas the stack's
 > own `rmq` is configured for 6 hours. Six containers instead of eight, and nothing holding the
 > Docker socket. If you are upgrading, back up the calibration and recordings, then remove

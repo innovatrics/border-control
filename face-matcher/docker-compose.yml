@@ -1,5 +1,5 @@
 # Face Matcher Station — the UI half of the deployment. The engine is platform/, brought up by
-# start.sh before this file. Station joins the same fm-network, so it reaches the platform
+# start.sh before this file. Station joins the same face-matcher-network, so it reaches the platform
 # APIs by service name (api:8080, graphql-api:8080) and its storage at seaweedfs:8333.
 name: face-matcher-station
 
@@ -30,5 +30,5 @@ services:
 networks:
   default:
     # Created by platform/run.sh.
-    name: fm-network
+    name: face-matcher-network
     external: true

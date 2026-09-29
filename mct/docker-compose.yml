@@ -6,7 +6,7 @@
 # floor plan.
 #
 # PREREQUISITES (see the MCT section of ../README.md):
-#   * the base stack is up (start.sh) — MCT joins its `fm-network` and reads its `rmq`,
+#   * the base stack is up (start.sh) — MCT joins its `face-matcher-network` and reads its `rmq`,
 #   * a per-camera detection feed from SmartFace Embedded Stream Processor cameras, delivered into
 #     that `rmq` over MQTT as edge-stream/<clientId>/frame_data,
 #   * a calibration model for your cameras, loaded into the Config API (MCT_MODEL).
@@ -271,5 +271,5 @@ volumes:
 
 networks:
   default:
-    name: fm-network
+    name: face-matcher-network
     external: true
